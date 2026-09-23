@@ -45,7 +45,7 @@ echo "[3/7] Выпуск прогноза на 2026-01-31 (детерминир�
 "$PY" -m app.cli forecast --date 2026-01-31 --no-llm
 
 echo
-echo "[4/7] Бэктест февраля 2026: 28 последовательных выпусков"
+echo "[4/7] Бэктест февраля 2026: 30 последовательных выпусков"
 "$PY" -m app.cli backtest --no-llm
 
 echo
@@ -53,13 +53,19 @@ echo "[5/7] Сводка по результатам"
 "$PY" -m app.cli report
 
 echo
-echo "[6/7] Автотесты"
-"$PY" -m pytest -q tests
+echo "[6/7] Автотесты (22 теста)"
+# --basetemp внутри .pytest_cache: системный временный каталог на машине жюри
+# может быть недоступен по правам, и шаг падал бы не из-за кода
+"$PY" -m pytest -q tests --basetemp=.pytest_cache/tmp
 
 echo
 if [ -n "${OPENAI_API_KEY:-}" ] || grep -qE "^OPENAI_API_KEY=.+" .env 2>/dev/null; then
   echo "[7/7] Живая оркестрация: порядок инструментов выбирает LLM"
   "$PY" -m app.cli forecast --date 2026-02-15 --llm
+  # канонические артефакты — детерминированные: возвращаем журнал и выпуск после прогона с LLM
+  "$PY" -m app.cli forecast --date 2026-02-15 --no-llm > /dev/null
+  echo "      Канонический журнал 2026-02-15 восстановлен детерминированным прогоном."
+  echo "      Журнал прогона с LLM по этой дате: outputs/agent_logs_llm/2026-02-15.json"
 else
   echo "[7/7] Шаг с LLM пропущен: ключ провайдера не задан."
   echo "      Решение полностью работает без него, цикл выполняет детерминированный планировщик."
@@ -70,8 +76,8 @@ echo
 echo "================================================================"
 echo " Контрольный сценарий пройден. Созданные артефакты:"
 echo "   outputs/forecast_feb2026.csv      — почасовой прогноз февраля, 672 часа"
-echo "   outputs/forecast_all_issues.csv   — все 28 выпусков по часам"
-echo "   outputs/backtest_summary.csv      — сводка по выпускам, отметки пересчёта"
+echo "   outputs/forecast_all_issues.csv   — все 30 выпусков по часам, 2880 строк"
+echo "   outputs/backtest_summary.csv      — сводка по 30 выпускам, отметки пересчёта"
 echo "   outputs/forecasts/<дата>.csv      — выпуск отдельного дня, 96 строк"
 echo "   outputs/agent_logs/<дата>.json    — журнал действий агента с трассой инструментов"
 echo "   docs/metrics.json                 — метрики честной валидации января 2026"

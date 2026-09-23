@@ -51,15 +51,21 @@ if ((Test-Path 'models\turbine_1.joblib') -and (Test-Path 'models\turbine_2.jobl
 }
 
 Invoke-Step '[3/7] Выпуск прогноза на 2026-01-31 (детерминированный план, без LLM)' @('-m', 'app.cli', 'forecast', '--date', '2026-01-31', '--no-llm')
-Invoke-Step '[4/7] Бэктест февраля 2026: 28 последовательных выпусков' @('-m', 'app.cli', 'backtest', '--no-llm')
+Invoke-Step '[4/7] Бэктест февраля 2026: 30 последовательных выпусков' @('-m', 'app.cli', 'backtest', '--no-llm')
 Invoke-Step '[5/7] Сводка по результатам' @('-m', 'app.cli', 'report')
-Invoke-Step '[6/7] Автотесты' @('-m', 'pytest', '-q', 'tests')
+# --basetemp внутри .pytest_cache: системный временный каталог на машине жюри
+# может быть недоступен по правам, и шаг падал бы не из-за кода
+Invoke-Step '[6/7] Автотесты (22 теста)' @('-m', 'pytest', '-q', 'tests', '--basetemp=.pytest_cache/tmp')
 
 $hasKey = $false
 if ($env:OPENAI_API_KEY) { $hasKey = $true }
 elseif ((Test-Path '.env') -and (Select-String -Path '.env' -Pattern '^OPENAI_API_KEY=.+' -Quiet)) { $hasKey = $true }
 if ($hasKey) {
     Invoke-Step '[7/7] Живая оркестрация: порядок инструментов выбирает LLM' @('-m', 'app.cli', 'forecast', '--date', '2026-02-15', '--llm')
+    # канонические артефакты — детерминированные: возвращаем журнал и выпуск после прогона с LLM
+    & $PY -m app.cli forecast --date 2026-02-15 --no-llm | Out-Null
+    Write-Host '      Канонический журнал 2026-02-15 восстановлен детерминированным прогоном.'
+    Write-Host '      Журнал прогона с LLM по этой дате: outputs/agent_logs_llm/2026-02-15.json'
 } else {
     Write-Host ''
     Write-Host '[7/7] Шаг с LLM пропущен: ключ провайдера не задан.'
@@ -71,8 +77,8 @@ Write-Host ''
 Write-Host '================================================================'
 Write-Host ' Контрольный сценарий пройден. Созданные артефакты:'
 Write-Host '   outputs/forecast_feb2026.csv      — почасовой прогноз февраля, 672 часа'
-Write-Host '   outputs/forecast_all_issues.csv   — все 28 выпусков по часам'
-Write-Host '   outputs/backtest_summary.csv      — сводка по выпускам, отметки пересчёта'
+Write-Host '   outputs/forecast_all_issues.csv   — все 30 выпусков по часам, 2880 строк'
+Write-Host '   outputs/backtest_summary.csv      — сводка по 30 выпускам, отметки пересчёта'
 Write-Host '   outputs/forecasts/<дата>.csv      — выпуск отдельного дня, 96 строк'
 Write-Host '   outputs/agent_logs/<дата>.json    — журнал действий агента с трассой инструментов'
 Write-Host '   docs/metrics.json                 — метрики честной валидации января 2026'

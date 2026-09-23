@@ -599,7 +599,7 @@ footer .wrap { display: flex; gap: 16px; flex-wrap: wrap; justify-content: space
       </div>
       <div class="card-body">
         <div class="tbl-wrap"><table id="tbl-bid"></table></div>
-        <p class="note">Энергия — сумма часовых значений прогноза по станции из двух турбин. Коридор P10–P90 — та же сумма по нижней и верхней границе: диапазон, в который суточная выработка попадает примерно в 80 % случаев. Худший час — час с наименьшим прогнозом.</p>
+        <p class="note">Энергия — сумма часовых значений прогноза по станции из двух турбин. Коридор суточной энергии калиброван отдельно, на остатках суточной энергии за январь 2026, а не суммированием почасовых границ: квантили неаддитивны, ошибки соседних часов коррелированы, и суммирование давало 93 % покрытия вместо 80 % при в 1,5–1,8 раза большей ширине. Измеренное покрытие нынешнего коридора — 73–77 % по проверке с исключением суток (выборка 30 суток, разбор в docs/root-analysis/05-interval-calibration.md). Худший час — час с наименьшим прогнозом.</p>
       </div>
     </div>
    </div>
@@ -661,7 +661,7 @@ footer .wrap { display: flex; gap: 16px; flex-wrap: wrap; justify-content: space
             <li>Январь — лёгкий месяц: на декабре 2025 тот же контур даёт 19,2–19,7 %, стандартная ошибка оценки около 1 пункта.</li>
             <li>Потолок задаёт сам прогноз погоды: на фактическом ветре ошибка модели турбины 0,032 против нынешних 0,143.</li>
             <li>Журнала простоев и ограничений диспетчера в данных нет, кривая мощности их не учитывает.</li>
-            <li>Коридор P10–P90 построен на остатках января и на новых данных требует перекалибровки.</li>
+            <li>Коридоры построены на остатках января 2026 и на новых данных требуют перекалибровки. Почасовой коридор покрывает 79 % значений, суточный — 73–77 % при номинале 80 %: выборка в 30 суток даёт стандартную ошибку покрытия около 7 пунктов.</li>
             <li>Промышленного сервиса нет: страница показывает результат работы агента, решение запускается из репозитория.</li>
           </ul>
         </span>
@@ -679,6 +679,7 @@ footer .wrap { display: flex; gap: 16px; flex-wrap: wrap; justify-content: space
 
 <script src="demo/dashboard-data.js"></script>
 <script src="demo/validation-data.js"></script>
+<script src="demo/daily-interval.js"></script>
 <script>
 (function () {
   "use strict";
@@ -1121,8 +1122,9 @@ footer .wrap { display: flex; gap: 16px; flex-wrap: wrap; justify-content: space
       if (!days[key]) { days[key] = { sum: 0, sumLo: 0, sumHi: 0, min: 2, minAt: "", lead: it.lead_day[i], h: 0 }; order.push(key); }
       var d = days[key];
       d.sum += it.farm[i]; d.h++;
-      if (it.p10[i] !== null) d.sumLo += it.p10[i];
-      if (it.p90[i] !== null) d.sumHi += it.p90[i];
+      /* почасовые границы больше не суммируются: квантили неаддитивны, ошибки часов
+         коррелированы, и сумма давала 93 % покрытия вместо 80 % при вдвое большей ширине.
+         Границы суточной энергии берутся из отдельной калибровки (demo/daily-interval.js). */
       if (it.farm[i] < d.min) { d.min = it.farm[i]; d.minAt = hhmm(it.ts[i]); }
     }
     var eu = state.mw ? "МВт·ч" : "норм·ч", pu = state.mw ? "МВт" : "доля";
@@ -1132,12 +1134,17 @@ footer .wrap { display: flex; gap: 16px; flex-wrap: wrap; justify-content: space
     order.forEach(function (k) {
       var d = days[k];
       var worstV = state.mw ? ru(mw(d.min), 1) : ru(d.min, 2);
+      var q = (window.DAILY_Q || {})["lead" + d.lead];
+      var full = d.h === 24 && q;                       /* неполные сутки коридором не снабжаем */
+      d.sumLo = full ? Math.max(0, d.sum + q.q10) : null;
+      d.sumHi = full ? d.sum + q.q90 : null;
+      var rangeTxt = full ? ru(conv(d.sumLo), 1) + " – " + ru(conv(d.sumHi), 1) : "—";
       body += "<tr><td>" + dayLong(k + "T00") + "</td><td>" + (d.lead === 1 ? "сутки вперёд" : "двое суток") +
         "</td><td><b>" + ru(conv(d.sum), 1) + "</b></td><td>" +
-        ru(conv(d.sumLo), 1) + " – " + ru(conv(d.sumHi), 1) + "</td><td>" +
+        rangeTxt + "</td><td>" +
         worstV + " (" + d.minAt + ")</td></tr>";
       bidRows.push([dayLong(k + "T00"), d.lead === 1 ? "сутки вперёд" : "двое суток",
-        ru(conv(d.sum), 1), ru(conv(d.sumLo), 1), ru(conv(d.sumHi), 1), worstV, d.minAt]);
+        ru(conv(d.sum), 1), full ? ru(conv(d.sumLo), 1) : "—", full ? ru(conv(d.sumHi), 1) : "—", worstV, d.minAt]);
     });
     $("tbl-bid").innerHTML =
       "<thead><tr><th>Дата</th><th>Горизонт</th><th>Энергия, " + eu + "</th><th>P10–P90, " + eu +

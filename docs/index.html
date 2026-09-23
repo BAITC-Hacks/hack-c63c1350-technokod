@@ -715,13 +715,44 @@ footer .wrap { display: flex; gap: 16px; flex-wrap: wrap; justify-content: space
     if (t > 10 && t < 20) return n + " часов";
     if (o === 1) return n + " час"; if (o >= 2 && o <= 4) return n + " часа"; return n + " часов"; }
   /* мощность станции в МВт: доля номинала × две турбины × номинал одной */
+  /* станция = две турбины, поэтому её доля умножается на суммарный номинал;
+     доля отдельной турбины — только на её собственный (дефект: раньше везде был station) */
   function mw(frac) { return state.mw ? frac * 2 * state.mw : null; }
+  function mwOne(frac) { return state.mw ? frac * state.mw : null; }
   function issue() { return D.issues[state.i]; }
   function agentLog() {
     var it = issue();
     return state.mode === "llm" && it.agent_llm ? it.agent_llm : it.agent;
   }
   function span() { return state.hz === 24 ? 24 : 48; }
+  /* Анализ агента относится ко всему выпуску (48 ч). При выборе 24 ч показывать его
+     целиком нельзя: диспетчер припишет завтрашнему дню риск следующих суток.
+     Поэтому флаги пересчитываются по тем часам, которые сейчас на экране. */
+  function risks(it, n) {
+    var th = (DASH.thresholds || { cut_in: 3, rated: 11.5, storm: 22 });
+    var r = { calm: 0, rated: 0, storm: 0, spread: 0 };
+    for (var i = 0; i < n; i++) {
+      var w = it.wind[i];
+      if (w === null || w === undefined) continue;
+      if (w < th.cut_in) r.calm++;
+      if (w >= th.rated) r.rated++;
+      if (w >= th.storm) r.storm++;
+      var d = Math.abs((it.t1[i] || 0) - (it.t2[i] || 0));
+      if (d > r.spread) r.spread = d;
+    }
+    return r;
+  }
+  /* Заключение пишет модель, и на первом выпуске она иногда утверждает, что изменений
+     относительно прошлого выпуска нет. Сравнивать не с чем — «нет изменений» и «нет
+     данных для сравнения» разные вещи, поэтому такую фразу снимаем и заменяем фактом. */
+  function fixConclusion(text, a) {
+    if (!text) return text;
+    var noPrev = a && (a.input_change_vs_previous_issue === null || a.input_change_vs_previous_issue === undefined);
+    if (!noPrev) return text;
+    var cleaned = text.replace(/[^.!?]*(?:прошл[а-я]*|предыдущ[а-я]*)\s+выпуск[^.!?]*[.!?]/gi, "").trim();
+    return (cleaned ? cleaned + " " : "") + "Сравнение с прошлым выпуском недоступно: это первый выпуск периода.";
+  }
+
   function traceFind(log, tool) {
     var out = null;
     log.trace.forEach(function (t) { if (t.tool === tool && !out) out = t.result || {}; });
@@ -782,7 +813,7 @@ footer .wrap { display: flex; gap: 16px; flex-wrap: wrap; justify-content: space
 
     svg.appendChild(el("text", { x: 2, y: 11, "class": "axis-cap" }, "Доля"));
     svg.appendChild(el("text", { x: 2, y: 22, "class": "axis-cap" }, "номинала"));
-    if (state.mw) svg.appendChild(el("text", { x: CW - M.r + 9, y: 15, "class": "axis-cap" }, "МВт"));
+    if (state.mw) svg.appendChild(el("text", { x: CW - M.r + 9, y: 15, "class": "axis-cap" }, "МВт станции"));
 
     [0, 0.25, 0.5, 0.75, 1].forEach(function (v) {
       var y = yAt(v);
@@ -851,8 +882,8 @@ footer .wrap { display: flex; gap: 16px; flex-wrap: wrap; justify-content: space
     var html = "<div class='tt'>" + dayLong(it.ts[idx]) + ", " + hhmm(it.ts[idx]) +
       " <span style='color:var(--text-muted);font-weight:400'>· лид " + it.lead_day[idx] + "</span></div>";
     html += row("var(--farm)", "Станция", it.farm[idx], true);
-    html += row("var(--series-1)", "Турбина 1", it.t1[idx], false);
-    html += row("var(--series-2)", "Турбина 2", it.t2[idx], false);
+    html += row("var(--series-1)", "Турбина 1", it.t1[idx], false, true);
+    html += row("var(--series-2)", "Турбина 2", it.t2[idx], false, true);
     html += "<div class='tr'><i class='sw' style='background:var(--accent-500);height:8px;border-radius:2px'></i><span>P10–P90</span><b>" +
       f2(it.p10[idx]) + " – " + f2(it.p90[idx]) + "</b></div>";
     if (it.prev_farm[idx] !== null && it.prev_farm[idx] !== undefined) {
@@ -868,9 +899,10 @@ footer .wrap { display: flex; gap: 16px; flex-wrap: wrap; justify-content: space
 
     updateRotors(idx);
   }
-  function row(color, name, v, strong) {
+  function row(color, name, v, strong, single) {
     if (v === null || v === undefined) return "";
-    var unit = state.mw ? " <span style='color:var(--text-muted);font-weight:400'>(" + ru(mw(v), 1) + " МВт)</span>" : "";
+    var val = single ? mwOne(v) : mw(v);
+    var unit = state.mw ? " <span style='color:var(--text-muted);font-weight:400'>(" + ru(val, 1) + " МВт)</span>" : "";
     return "<div class='tr'><i class='sw' style='background:" + color + "'></i><span>" + name +
       "</span><b" + (strong ? "" : " style='font-weight:500'") + ">" + f2(v) + unit + "</b></div>";
   }
@@ -1065,6 +1097,7 @@ footer .wrap { display: flex; gap: 16px; flex-wrap: wrap; justify-content: space
 
   function drawAgent() {
     var log = agentLog(), a = log.analysis || {}, it = issue();
+    var n = span(), rk = risks(it, n);
     $("agent-mode").innerHTML = log.llm_used
       ? "<span class='badge'>порядок инструментов выбрала модель</span>"
       : "<span class='badge'>детерминированный план</span>";
@@ -1092,10 +1125,10 @@ footer .wrap { display: flex; gap: 16px; flex-wrap: wrap; justify-content: space
     });
 
     $("flags").innerHTML =
-      flag(IC.calm, "Штиль", a.calm_hours + " ч") +
-      flag(IC.chart, "Номинал", a.rated_hours + " ч") +
-      flag(IC.storm, "Шторм", a.storm_hours + " ч") +
-      flag(IC.spread, "Разброс", ru(a.turbine_spread_max, 3));
+      flag(IC.calm, "Штиль", rk.calm + " ч") +
+      flag(IC.chart, "Номинал", rk.rated + " ч") +
+      flag(IC.storm, "Шторм", rk.storm + " ч") +
+      flag(IC.spread, "Разница турбин", ru(rk.spread, 3) + " н.");
 
     var box = $("banner");
     if (log.recalculated) {
@@ -1113,7 +1146,8 @@ footer .wrap { display: flex; gap: 16px; flex-wrap: wrap; justify-content: space
           : "изменение " + ru(a.input_change_vs_previous_issue, 3) + " ниже порога " + ru(a.update_threshold, 2)) +
         '</span></div>';
     }
-    $("conclusion").textContent = log.conclusion || "";
+    $("conclusion").textContent = fixConclusion(log.conclusion || "", a)
+      + (n === 24 ? " (заключение относится к полному выпуску на 48 часов; на экране показаны первые сутки)" : "");
   }
   function flag(icon, k, v) {
     return '<div class="flag"><span class="fi">' + svgIc(icon, 17) + '</span>' +

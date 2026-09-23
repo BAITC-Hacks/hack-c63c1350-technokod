@@ -56,6 +56,7 @@ echo
 echo "[6/7] Автотесты (22 теста)"
 # --basetemp внутри .pytest_cache: системный временный каталог на машине жюри
 # может быть недоступен по правам, и шаг падал бы не из-за кода
+mkdir -p .pytest_cache          # pytest не создаёт родителя для --basetemp
 "$PY" -m pytest -q tests --basetemp=.pytest_cache/tmp
 
 echo

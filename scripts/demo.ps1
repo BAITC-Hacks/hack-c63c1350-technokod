@@ -55,6 +55,7 @@ Invoke-Step '[4/7] Бэктест февраля 2026: 30 последовате
 Invoke-Step '[5/7] Сводка по результатам' @('-m', 'app.cli', 'report')
 # --basetemp внутри .pytest_cache: системный временный каталог на машине жюри
 # может быть недоступен по правам, и шаг падал бы не из-за кода
+if (-not (Test-Path '.pytest_cache')) { New-Item -ItemType Directory '.pytest_cache' | Out-Null }   # pytest не создаёт родителя для --basetemp
 Invoke-Step '[6/7] Автотесты (22 теста)' @('-m', 'pytest', '-q', 'tests', '--basetemp=.pytest_cache/tmp')
 
 $hasKey = $false

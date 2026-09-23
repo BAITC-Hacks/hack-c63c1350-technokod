@@ -47,12 +47,12 @@ historical-forecast  ┴─────►  build_features        forecast_avail
                                   │
                                   ▼
                             app/agent.py  ForecastAgent
-                            get_weather → prepare_and_predict → analyze
-                                       → [recalculate] → save_forecast        ┌─► outputs/forecasts/<дата>.csv
+                            get_weather → check_input_quality → prepare_and_predict
+                                       → analyze → [recalculate] → save_forecast  ┌─► outputs/forecasts/<дата>.csv
                             оркестратор: LLM (app/llm.py) либо план ──────────┴─► outputs/agent_logs/<дата>.json
                                   │
                                   ▼
-                            app/backtest.py  28 выпусков подряд ──────────────► outputs/forecast_all_issues.csv
+                            app/backtest.py  30 выпусков подряд ──────────────► outputs/forecast_all_issues.csv
                             backtest → build_submission ─────────────────────► outputs/forecast_feb2026.csv
                                   │                                          └─► outputs/backtest_summary.csv
                                   ▼
@@ -69,7 +69,7 @@ historical-forecast  ┴─────►  build_features        forecast_avail
 | `app/features.py` | 16 признаков из прогноза и календаря, стыковка с фактом | `build_features`, `make_training_set`, `FEATURES` | numpy, pandas |
 | `app/model.py` | три компонента прогноза, их смесь, интервал P10–P90, метрики | `GenerationModel`, `PowerCurve`, `evaluate`, `level_bin` | scikit-learn, joblib |
 | `app/llm.py` | единый клиент LLM, function calling, кэш ответов для режима без ключей | `chat`, `chat_tools`, `available` | openai SDK |
-| `app/agent.py` | агентный цикл, пять инструментов, журнал действий | `ForecastAgent`, `AgentState`, `FORECAST_COLUMNS` | model, weather, llm |
+| `app/agent.py` | агентный цикл, шесть инструментов, контроль качества входа и отказ от выпуска, журнал действий | `ForecastAgent`, `AgentState`, `FORECAST_COLUMNS` | model, weather, llm |
 | `app/backtest.py` | последовательные выпуски, сборка итогового ряда февраля | `backtest`, `build_submission`, `run` | agent |
 | `app/cli.py` | командная строка | `main`, `cmd_*` | agent, backtest, scripts.train |
 | `scripts/train.py` | обучение, подбор весов смеси, квантили остатков, запись метрик | `main`, `honest_predictions` | model, weather, data |
@@ -123,15 +123,16 @@ historical-forecast  ┴─────►  build_features        forecast_avail
 
 | Файл | Строк | Колонки |
 |---|---|---|
-| `outputs/forecast_all_issues.csv` | 28 × 96 = 2688 | `issue_date, ts, horizon_hour, lead_day, turbine, power_norm_pred, …компоненты` |
-| `outputs/forecast_feb2026.csv` | 672 (01.02 00:00 – 28.02 23:00, без пропусков) | `ts, turbine_1_lead1, turbine_2_lead1, turbine_1_lead2, turbine_2_lead2, turbine_1_p10, turbine_2_p10, turbine_1_p90, turbine_2_p90, farm_mean_lead1` |
-| `outputs/backtest_summary.csv` | 28 | `issue_date, hours, recomputed, llm_used, storm_hours, calm_hours, rated_hours, mean_cf_t1, mean_cf_t2, mean_abs_change_vs_prev` |
-| `outputs/agent_logs/<дата>.json` | 28 файлов | `issue_date, llm_used, recalculated, analysis, conclusion, trace` |
+| `outputs/forecast_all_issues.csv` | 30 × 96 = 2880 | `issue_date, ts, horizon_hour, lead_day, turbine, power_norm_pred, …компоненты` |
+| `outputs/forecast_feb2026.csv` | 672 (01.02 00:00 – 28.02 23:00, без пропусков) | `ts, turbine_1_lead1, turbine_2_lead1, turbine_1_lead2, turbine_2_lead2, turbine_1_p10, turbine_2_p10, turbine_1_p90, turbine_2_p90, farm_mean_lead1, farm_mean_lead2, farm_p10_lead1, farm_p90_lead1` |
+| `outputs/backtest_summary.csv` | 30 | `issue_date, hours, recomputed, llm_used, storm_hours, calm_hours, rated_hours, mean_cf_t1, mean_cf_t2, mean_abs_change_vs_prev` |
+| `outputs/agent_logs/<дата>.json` | 30 файлов | `issue_date, llm_used, published, confidence, quality, recalculated, analysis, conclusion, trace` |
 | `outputs/agent_logs_llm/<дата>.json` | 3 файла | те же поля; выпуски 05.02, 15.02 и 21.02, где порядок инструментов выбирала LLM |
 
-Для 01.02.2026 колонки `*_lead2` пусты все 24 часа: прогноз за двое суток потребовал бы выпуск от 30.01,
-то есть выход за тестовый период. Это единственный разрыв по построению, остальные 27 суток покрыты
-обоими горизонтами.
+Пропусков в итоговом файле нет ни в одной колонке: выпуски начинаются с 29.01, поэтому 01.02 получает
+прогноз и на сутки (выпуск от 31.01), и на двое суток (выпуск от 30.01). Два выпуска, 29.01 и 30.01,
+лежат вне февраля и нужны именно для этого, а также закрывают часы 31 января — на случай трактовки
+«следующих 24–48 часов» с отсчётом внутри 31 января.
 
 ## Сквозные решения
 

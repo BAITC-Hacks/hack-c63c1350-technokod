@@ -20,14 +20,14 @@
   --accent-600: #C87C00; --accent-500: #E08A00; --accent-100: #FBEBCF;
 
   --bg: #F4F7FA;         --surface: #FFFFFF;    --surface-2: #F1F5F8;
-  --text: #10191F;       --text-2: #4A5A66;     --text-muted: #6B7C88;
+  --text: #10191F;       --text-2: #4A5A66;     --text-muted: #526574;
   --border: #DCE4EA;     --grid: #EDF1F4;       --link: #1A6B9B;
 
   --series-1: #6FB4DB;   --series-2: #2E8DC2;
   --band: rgba(200,124,0,.16);  --ref: #93A3AE;
   --farm: #123F66;
 
-  --ok: #0F9D58; --ok-bg: #E7F5EE; --ok-br: #BFE3D1;
+  --ok: #0B6B43; --ok-ic: #0F9D58; --ok-bg: #E7F5EE; --ok-br: #BFE3D1;
   --warn: #B07400; --warn-bg: #FDF3DC; --warn-br: #EFD79A;
   --fail: #D03B3B; --fail-bg: #FDECEC; --fail-br: #F3C4C4;
 
@@ -38,6 +38,7 @@
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme="light"]) {
     color-scheme: dark;
+    --daytag-fg: #BFE2F5;
     --brand-100: #17313F;  --brand-50: #14252F;  --accent-100: #3A2D10;
     --bg: #0D1216;         --surface: #151D23;   --surface-2: #1B242C;
     --text: #EDF1F4;       --text-2: #B6C2CB;    --text-muted: #8697A3;
@@ -45,7 +46,7 @@
     --series-1: #6FB4DB;   --series-2: #2E8DC2;
     --band: rgba(224,138,0,.10); --ref: #7B8A95;
     --farm: #BFE2F5;
-    --ok: #35BE7C; --ok-bg: #12291F; --ok-br: #1E4733;
+    --ok: #35BE7C; --ok-ic: #35BE7C; --ok-bg: #12291F; --ok-br: #1E4733;
     --warn: #E0A62A; --warn-bg: #2B2311; --warn-br: #4A3B15;
     --fail: #E86A6A; --fail-bg: #2C1717; --fail-br: #4D2626;
     --shadow: none;
@@ -53,6 +54,7 @@
 }
 :root[data-theme="dark"] {
   color-scheme: dark;
+    --daytag-fg: #BFE2F5;
   --brand-100: #17313F;  --brand-50: #14252F;  --accent-100: #3A2D10;
   --bg: #0D1216;         --surface: #151D23;   --surface-2: #1B242C;
   --text: #EDF1F4;       --text-2: #B6C2CB;    --text-muted: #8697A3;
@@ -60,7 +62,7 @@
   --series-1: #6FB4DB;   --series-2: #2E8DC2;
   --band: rgba(224,138,0,.10); --ref: #7B8A95;
   --farm: #BFE2F5;
-  --ok: #35BE7C; --ok-bg: #12291F; --ok-br: #1E4733;
+  --ok: #35BE7C; --ok-ic: #35BE7C; --ok-bg: #12291F; --ok-br: #1E4733;
   --warn: #E0A62A; --warn-bg: #2B2311; --warn-br: #4A3B15;
   --fail: #E86A6A; --fail-bg: #2C1717; --fail-br: #4D2626;
   --shadow: none;
@@ -137,7 +139,11 @@ select:focus-visible, button:focus-visible, .chart:focus-visible, summary:focus-
 }
 
 /* ---------- KPI ---------- */
-.kpis { display: grid; grid-template-columns: 1.45fr 1fr 1fr 1fr 1fr; gap: 12px; margin: 12px 0 16px; }
+.kpis {
+  display: grid; gap: 12px; margin: 12px 0 16px;
+  /* колонок ровно столько, сколько карточек: иначе справа висит пустой слот */
+  grid-template-columns: 1.45fr repeat(calc(var(--kpi-cols, 5) - 1), 1fr);
+}
 .kpi {
   background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-card);
   box-shadow: var(--shadow); padding: 14px 16px; display: flex; align-items: center; gap: 13px; min-width: 0;
@@ -266,26 +272,26 @@ main { padding: 0 0 40px; }
 .chart-box { position: relative; overflow-x: auto; overflow-y: hidden; }
 svg.chart { display: block; width: 100%; height: auto; touch-action: pan-y; }
 .gridline { stroke: var(--grid); stroke-width: 1; }
-.axis-text { fill: var(--text-muted); font-size: 11px; font-family: var(--font); font-variant-numeric: tabular-nums; }
+.axis-text { fill: var(--text-muted); font-size: 16px; font-family: var(--font); font-variant-numeric: tabular-nums; }
 .axis-text.right { text-anchor: start; }
-.axis-cap { fill: var(--text-muted); font-size: 10.5px; font-family: var(--font); }
+.axis-cap { fill: var(--text-muted); font-size: 15px; font-family: var(--font); }
 .band-fill { fill: var(--band); }
-.s-farm { fill: none; stroke: var(--farm); stroke-width: 2.6; stroke-linejoin: round; stroke-linecap: round; }
-.s-t1 { fill: none; stroke: var(--series-1); stroke-width: 1.5; stroke-linejoin: round; stroke-linecap: round; }
-.s-t2 { fill: none; stroke: var(--series-2); stroke-width: 1.5; stroke-dasharray: 6 3; stroke-linejoin: round; stroke-linecap: round; }
-.s-prev { fill: none; stroke: var(--ref); stroke-width: 1.5; stroke-dasharray: 5 4; }
-.s-fact { fill: none; stroke: var(--farm); stroke-width: 1.6; }
-.s-pred { fill: none; stroke: var(--series-2); stroke-width: 1.5; stroke-dasharray: 5 3; }
+.s-farm { fill: none; stroke: var(--farm); stroke-width: 3.4; stroke-linejoin: round; stroke-linecap: round; }
+.s-t1 { fill: none; stroke: var(--series-1); stroke-width: 2.2; stroke-linejoin: round; stroke-linecap: round; }
+.s-t2 { fill: none; stroke: var(--series-2); stroke-width: 2.2; stroke-dasharray: 8 4; stroke-linejoin: round; stroke-linecap: round; }
+.s-prev { fill: none; stroke: var(--ref); stroke-width: 2.2; stroke-dasharray: 7 5; }
+.s-fact { fill: none; stroke: var(--farm); stroke-width: 2.4; }
+.s-pred { fill: none; stroke: var(--series-2); stroke-width: 2.2; stroke-dasharray: 7 4; }
 .dayline { stroke: var(--text-muted); stroke-width: 1; stroke-dasharray: 4 4; opacity: .55; }
-.daylabel { fill: var(--text-muted); font-size: 11px; font-family: var(--font); }
+.daylabel { fill: var(--text-muted); font-size: 15px; font-family: var(--font); }
 .daytag-bg { fill: var(--brand-50); stroke: var(--border); }
-.daytag-tx { fill: var(--brand-700); font-size: 11px; font-weight: 600; font-family: var(--font); text-anchor: middle; }
+.daytag-tx { fill: var(--daytag-fg, var(--brand-700)); font-size: 15px; font-weight: 600; font-family: var(--font); text-anchor: middle; }
 .cursor-line { stroke: var(--text-2); stroke-width: 1; opacity: .75; }
 .dot { stroke: var(--surface); stroke-width: 2; }
 .dot.farm { fill: var(--farm); } .dot.t1 { fill: var(--series-1); }
 .dot.t2 { fill: var(--series-2); } .dot.fact { fill: var(--farm); } .dot.pred { fill: var(--series-2); }
 
-.legend { display: flex; gap: 18px; flex-wrap: wrap; font-size: 12.5px; color: var(--text-2); padding: 4px 18px 2px; }
+.legend { display: flex; gap: 18px; flex-wrap: wrap; font-size: 13.5px; color: var(--text-2); padding: 4px 18px 2px; }
 .legend span { display: inline-flex; align-items: center; gap: 7px; }
 .key { width: 18px; height: 0; border-top-width: 2.5px; border-top-style: solid; display: inline-block; }
 .key.farm { border-color: var(--farm); }
@@ -310,7 +316,7 @@ svg.chart { display: block; width: 100%; height: auto; touch-action: pan-y; }
 /* ---------- панель агента ---------- */
 .agent-head { display: flex; align-items: center; gap: 11px; padding: 15px 18px 0; }
 .agent-head .ok-round {
-  width: 34px; height: 34px; border-radius: 50%; background: var(--ok-bg); color: var(--ok);
+  width: 34px; height: 34px; border-radius: 50%; background: var(--ok-bg); color: var(--ok-ic);
   display: grid; place-items: center; flex: none;
 }
 .agent-head .t { min-width: 0; }
@@ -319,7 +325,7 @@ svg.chart { display: block; width: 100%; height: auto; touch-action: pan-y; }
 .steps li { display: flex; gap: 11px; align-items: flex-start; padding: 6px 0; }
 .steps .mark {
   width: 22px; height: 22px; border-radius: 50%; flex: none; display: grid; place-items: center;
-  background: var(--ok-bg); color: var(--ok); margin-top: 1px;
+  background: var(--ok-bg); color: var(--ok-ic); margin-top: 1px;
 }
 .steps .mark.rep { background: var(--brand-50); color: var(--brand-600); }
 .steps .nm { font-size: 13.5px; font-weight: 600; color: var(--text); }
@@ -408,6 +414,24 @@ summary:hover { color: var(--link); }
 .limits { margin: 6px 0 0; padding-left: 18px; }
 .limits li { margin-bottom: 4px; }
 .note { font-size: 12px; line-height: 18px; color: var(--text-muted); margin-top: 8px; }
+/* ---------- пояснения: одна всплывашка на все элементы ----------
+   Показывается и по наведению, и по фокусу с клавиатуры, снимается по Escape.
+   Текст берётся из data-hint, поэтому динамические блоки подставляют в него
+   те же числа, что показывают. */
+[data-hint] { cursor: help; }
+.hx {
+  position: fixed; z-index: 50; max-width: 340px; pointer-events: none;
+  background: var(--surface); color: var(--text-2);
+  border: 1px solid var(--border); border-radius: 10px;
+  box-shadow: 0 8px 24px rgba(16,25,31,.18);
+  padding: 9px 12px; font-size: 12.5px; line-height: 18px;
+  opacity: 0; transform: translateY(-3px); transition: opacity .12s, transform .12s;
+}
+.hx.on { opacity: 1; transform: translateY(0); }
+.hx b { color: var(--text); font-weight: 650; }
+.hx .nums { font-variant-numeric: tabular-nums; }
+@media (prefers-reduced-motion: reduce) { .hx { transition: none; } }
+
 footer { border-top: 1px solid var(--border); padding: 18px 0 34px; color: var(--text-muted); font-size: 12.5px; }
 footer .wrap { display: flex; gap: 16px; flex-wrap: wrap; justify-content: space-between; }
 .passport { width: 100%; margin-bottom: 14px; }
@@ -458,14 +482,14 @@ footer .wrap { display: flex; gap: 16px; flex-wrap: wrap; justify-content: space
 
   <!-- 1. Чипы: что за выпуск и можно ли ему верить как «прогнозу на тот момент» -->
   <div class="chiprow" role="group" aria-label="Параметры выпуска">
-    <div class="chip">
+    <div class="chip" data-hint="&lt;b&gt;Дата выпуска прогноза.&lt;/b&gt; Момент выпуска — конец суток (23:59): прогноз опирается только на погодные прогнозы, выпущенные в течение этого дня, и покрывает следующие двое суток.">
       <svg class="ic" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4.5" width="18" height="16" rx="2.5"/><path d="M3 9.5h18M8 2.5v4M16 2.5v4"/></svg>
       <span class="k">Выпуск</span>
       <button class="nav" type="button" id="prev" aria-label="Предыдущий выпуск">‹</button>
       <select id="issue" aria-label="Дата выпуска прогноза"></select>
       <button class="nav" type="button" id="next" aria-label="Следующий выпуск">›</button>
     </div>
-    <div class="chip seg" id="seg-hz" role="group" aria-label="Горизонт прогноза">
+    <div class="chip seg" id="seg-hz" role="group" aria-label="Горизонт прогноза" data-hint="&lt;b&gt;Сколько часов показано на экране.&lt;/b&gt; Выбор не запускает новый расчёт: выпуск уже посчитан на 48 часов, меняется только отображаемый период, а показатели риска пересчитываются под него.">
       <button type="button" data-h="24">24 ч</button>
       <button type="button" data-h="48" aria-pressed="true">48 ч</button>
     </div>
@@ -473,17 +497,17 @@ footer .wrap { display: flex; gap: 16px; flex-wrap: wrap; justify-content: space
       <svg class="ic" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M7 18h10.5a3.5 3.5 0 0 0 .3-7 5.5 5.5 0 0 0-10.6-1.3A4 4 0 0 0 7 18z"/></svg>
       <span class="k">Погода</span><span class="v" id="v-weather">Open-Meteo</span>
     </div>
-    <div class="chip seg" id="seg-mode" role="group" aria-label="Режим агента">
+    <div class="chip seg" id="seg-mode" role="group" aria-label="Режим агента" data-hint="&lt;b&gt;Чей журнал показан:&lt;/b&gt; детерминированного планировщика или живой LLM-оркестрации, где порядок инструментов выбирала модель. Числовой результат от режима не зависит — решения совпали на всех 30 выпусках.">
       <button type="button" data-m="det" aria-pressed="true">Детерминированный</button>
       <button type="button" data-m="llm">LLM-оркестрация</button>
     </div>
-    <div class="chip seg" id="seg-mw" role="group" aria-label="Номинал турбины">
+    <div class="chip seg" id="seg-mw" role="group" aria-label="Номинал турбины" data-hint="&lt;b&gt;Номинал турбины в исходных данных не указан — это допущение.&lt;/b&gt; 2,5 МВт соответствует Шелекской ВЭС: 60 МВт на 24 машины. Влияет только на пересчёт в МВт и МВт·ч, доли номинала не меняются.">
       <button type="button" data-p="0">доли</button>
       <button type="button" data-p="2.5" aria-pressed="true">2,5 МВт</button>
       <button type="button" data-p="3">3,0</button>
       <button type="button" data-p="3.5">3,5</button>
     </div>
-    <div class="status" id="quality" title="Вердикт инструмента check_input_quality"></div>
+    <div class="status" id="quality"></div>
   </div>
 
   <!-- 2. KPI -->
@@ -564,7 +588,7 @@ footer .wrap { display: flex; gap: 16px; flex-wrap: wrap; justify-content: space
    <div class="col-left">
     <div class="card">
       <div class="card-head">
-        <h2 id="chart-title">Прогноз выработки</h2>
+        <h2 id="chart-title" data-hint="&lt;b&gt;Что нарисовано:&lt;/b&gt; станция жирной линией и две турбины тонкими, вокруг станции коридор P10–P90, вчерашний выпуск серым пунктиром для сравнения, вертикальная граница отделяет первые сутки от вторых.">Прогноз выработки</h2>
         <span class="sub" id="chart-sub"></span>
       </div>
       <div class="legend">
@@ -590,7 +614,7 @@ footer .wrap { display: flex; gap: 16px; flex-wrap: wrap; justify-content: space
 
     <div class="card">
       <div class="card-head">
-        <h2>Сводка для заявки</h2>
+        <h2 data-hint="&lt;b&gt;Суточные величины для подачи заявки на рынок.&lt;/b&gt; Коридор калиброван на остатках суточной энергии января 2026, а не суммированием почасовых границ: квантили неаддитивны. Измеренное покрытие — 73–77 %.">Сводка для заявки</h2>
         <span class="sub">
           <button class="copybtn" type="button" id="copy">
             <svg class="ic" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="12" height="12" rx="2"/><path d="M5 15H4a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1h10a1 1 0 0 1 1 1v1"/></svg>
@@ -611,7 +635,7 @@ footer .wrap { display: flex; gap: 16px; flex-wrap: wrap; justify-content: space
         <span class="ok-round" id="agent-icon">
           <svg class="ic" width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>
         </span>
-        <span class="t"><h2 id="agent-title">Агент выполнил прогноз</h2><span class="sub" id="agent-mode"></span></span>
+        <span class="t"><h2 id="agent-title" data-hint="&lt;b&gt;Журнал действий агента по этому выпуску:&lt;/b&gt; какие инструменты вызваны и в каком порядке. Пометка под заголовком говорит, выбрала ли порядок LLM или детерминированный планировщик.">Агент выполнил прогноз</h2><span class="sub" id="agent-mode"></span></span>
         <span class="when" id="agent-when"></span>
       </div>
       <ol class="steps" id="steps"></ol>
@@ -630,7 +654,7 @@ footer .wrap { display: flex; gap: 16px; flex-wrap: wrap; justify-content: space
   <section class="bottom">
     <div class="card">
       <div class="card-head">
-        <h2>Факт и прогноз · январь 2026</h2>
+        <h2 data-hint="&lt;b&gt;Проверка на отложенном месяце:&lt;/b&gt; факт выработки против прогноза, выпущенного накануне, моделью, обученной только до 31 декабря 2025 года. Февральского факта у участников нет, поэтому качество измерено на январе.">Факт и прогноз · январь 2026</h2>
         <span class="sub">прогноз на сутки вперёд против факта</span>
       </div>
       <div class="legend">
@@ -696,6 +720,60 @@ footer .wrap { display: flex; gap: 16px; flex-wrap: wrap; justify-content: space
   var SVGNS = "http://www.w3.org/2000/svg";
   var state = { i: 0, hz: 48, mode: "det", mw: 2.5 };
 
+  /* ================= пояснения =================
+     Одна всплывашка на всю страницу. Источник текста — атрибут data-hint,
+     поэтому пояснение всегда рядом с тем числом, которое объясняет. */
+  var hx = document.createElement("div");
+  hx.className = "hx"; hx.id = "hx"; hx.setAttribute("role", "tooltip");
+  document.body.appendChild(hx);
+  var hxFor = null;
+  function ha(t) {
+    return ' data-hint="' + String(t).replace(/&/g, "&amp;").replace(/"/g, "&quot;") + '"';
+  }
+  function hintShow(t) {
+    var txt = t.getAttribute("data-hint");
+    if (!txt) return;
+    hxFor = t; hx.innerHTML = txt; hx.classList.add("on");
+    t.setAttribute("aria-describedby", "hx");
+    var r = t.getBoundingClientRect(), w = hx.offsetWidth, h = hx.offsetHeight;
+    var left = Math.min(Math.max(8, r.left), Math.max(8, window.innerWidth - w - 8));
+    var top = r.bottom + 8;
+    if (top + h > window.innerHeight - 8) top = Math.max(8, r.top - h - 8);
+    hx.style.left = left + "px"; hx.style.top = top + "px";
+  }
+  function hintHide() {
+    hx.classList.remove("on");
+    if (hxFor) hxFor.removeAttribute("aria-describedby");
+    hxFor = null;
+  }
+  function hintTarget(n) {
+    while (n && n !== document.body) {
+      if (n.getAttribute && n.getAttribute("data-hint")) return n;
+      n = n.parentNode;
+    }
+    return null;
+  }
+  document.addEventListener("mouseover", function (e) {
+    var t = hintTarget(e.target);
+    if (t && t !== hxFor) hintShow(t); else if (!t && hxFor) hintHide();
+  });
+  document.addEventListener("focusin", function (e) {
+    var t = hintTarget(e.target);
+    if (t) hintShow(t); else hintHide();
+  });
+  document.addEventListener("focusout", hintHide);
+  document.addEventListener("keydown", function (e) { if (e.key === "Escape") hintHide(); });
+  window.addEventListener("scroll", hintHide, true);
+  window.addEventListener("resize", hintHide);
+  /* пояснения должны быть доступны и с клавиатуры */
+  function hintable() {
+    Array.prototype.forEach.call(document.querySelectorAll("[data-hint]"), function (n) {
+      if (!n.hasAttribute("tabindex") && !/^(A|BUTTON|SELECT|INPUT|SUMMARY)$/.test(n.tagName)) {
+        n.setAttribute("tabindex", "0");
+      }
+    });
+  }
+
   /* ---------- помощники ---------- */
   function el(name, attrs, text) {
     var n = document.createElementNS(SVGNS, name);
@@ -706,8 +784,8 @@ footer .wrap { display: flex; gap: 16px; flex-wrap: wrap; justify-content: space
   function clear(node) { while (node.firstChild) node.removeChild(node.firstChild); }
   function hhmm(s) { return s.slice(11, 16); }
   function dmy(s) { return s.slice(8, 10) + "." + s.slice(5, 7); }
-  function f2(v) { return v === null || v === undefined ? "—" : v.toFixed(2); }
-  function f3(v) { return v === null || v === undefined ? "—" : v.toFixed(3); }
+  function f2(v) { return v === null || v === undefined ? "—" : v.toFixed(2).replace(".", ","); }
+  function f3(v) { return v === null || v === undefined ? "—" : v.toFixed(3).replace(".", ","); }
   function ru(v, d) { return v === null || v === undefined ? "—" : v.toFixed(d === undefined ? 1 : d).replace(".", ","); }
   var MONTH = ["января","февраля","марта","апреля","мая","июня","июля","августа","сентября","октября","ноября","декабря"];
   function dayLong(s) { return String(Number(s.slice(8, 10))) + " " + MONTH[Number(s.slice(5, 7)) - 1]; }
@@ -813,7 +891,8 @@ footer .wrap { display: flex; gap: 16px; flex-wrap: wrap; justify-content: space
 
     svg.appendChild(el("text", { x: 2, y: 11, "class": "axis-cap" }, "Доля"));
     svg.appendChild(el("text", { x: 2, y: 22, "class": "axis-cap" }, "номинала"));
-    if (state.mw) svg.appendChild(el("text", { x: CW - M.r + 9, y: 15, "class": "axis-cap" }, "МВт станции"));
+    /* подпись прижата к правому краю: при крупном шрифте «МВт станции» иначе обрезается */
+    if (state.mw) svg.appendChild(el("text", { x: CW - 4, y: 15, "class": "axis-cap", "text-anchor": "end" }, "МВт станции"));
 
     [0, 0.25, 0.5, 0.75, 1].forEach(function (v) {
       var y = yAt(v);
@@ -834,8 +913,8 @@ footer .wrap { display: flex; gap: 16px; flex-wrap: wrap; justify-content: space
     if (brk > 0) {
       var bx = xs[brk];
       svg.appendChild(el("line", { x1: bx, y1: M.t, x2: bx, y2: M.t + PH, "class": "dayline" }));
-      svg.appendChild(el("rect", { x: bx - 31, y: 2, width: 62, height: 19, rx: 9, "class": "daytag-bg" }));
-      svg.appendChild(el("text", { x: bx, y: 15.5, "class": "daytag-tx" }, "Lead 2"));
+      svg.appendChild(el("rect", { x: bx - 39, y: 1, width: 78, height: 24, rx: 11, "class": "daytag-bg" }));
+      svg.appendChild(el("text", { x: bx, y: 18, "class": "daytag-tx" }, "Сутки 2"));
       svg.appendChild(el("text", { x: bx - 12, y: M.t + 13, "class": "daylabel", "text-anchor": "end" },
         "← сутки 1 (" + dayLong(it.ts[0]) + ")"));
       svg.appendChild(el("text", { x: bx + 12, y: M.t + 13, "class": "daylabel" },
@@ -919,6 +998,14 @@ footer .wrap { display: flex; gap: 16px; flex-wrap: wrap; justify-content: space
     return Math.max(0, Math.min(g.n - 1, Math.round((x - M.l) / g.PW * (g.n - 1))));
   }
 
+  /* покрытие суточного коридора берём из калибровки, а не из головы */
+  function dailyCoverageTxt() {
+    var q = window.DAILY_Q;
+    if (!q || !q.lead1 || q.lead1.coverage_loo === undefined) return "73–77 %";
+    var a = Math.round(q.lead1.coverage_loo * 100), b = Math.round(q.lead2.coverage_loo * 100);
+    return (Math.min(a, b) === Math.max(a, b)) ? Math.min(a, b) + " %" : Math.min(a, b) + "–" + Math.max(a, b) + " %";
+  }
+
   /* ================= KPI ================= */
   function drawKpis() {
     var it = issue(), n = span(), i;
@@ -944,25 +1031,50 @@ footer .wrap { display: flex; gap: 16px; flex-wrap: wrap; justify-content: space
     var delta = cnt && b > 0 ? (a - b) / b * 100 : null;
 
     var cov = D.model.coverage.turbine_1 * 100;
+    var m = D.model.metrics;
+    var loo = dailyCoverageTxt();
     var html = "";
     html += tile("primary", IC.bolt, ru(conv(sum), 1) + unit,
-      "Ожидаемая энергия · " + hoursWord(n), "");
-    order.slice(0, 2).forEach(function (k, idx) {
+      "Ожидаемая энергия · " + hoursWord(n),
+      "<b>Сумма почасового прогноза станции</b> за показанный горизонт (" + n + " ч). " +
+      (state.mw
+        ? "В МВт·ч пересчитано по принятому номиналу " + ru(state.mw, 1) +
+          " МВт на машину: в исходных данных номинал не указан, это допущение."
+        : "В долях номинала единица — норм·ч: один час работы на полной мощности."));
+    /* на 24 ч сутки 1 численно совпадают с главной плиткой — дубль не показываем */
+    (n > 24 ? order.slice(0, 2) : []).forEach(function (k, idx) {
+      var lead = days[k].lead;
+      var err = lead === 1 ? m.turbine_1.lead1.blend.nmae_pct : m.turbine_1.lead2.blend.nmae_pct;
       html += tile("", IC.cal, ru(conv(days[k].s), 1) + unit,
-        "Сутки " + (idx + 1) + " · " + dayLong(k + "T00"), "");
+        "Сутки " + (idx + 1) + " · " + dayLong(k + "T00"),
+        "<b>Энергия за " + dayLong(k + "T00") + "</b> — " +
+        (lead === 1 ? "прогноз на сутки вперёд" : "прогноз на двое суток") +
+        ". На вторых сутках ошибка закономерно выше: nMAE " +
+        ru(m.turbine_1.lead1.blend.nmae_pct, 1) + " % против " +
+        ru(m.turbine_1.lead2.blend.nmae_pct, 1) + " % (турбина 1). Для этих суток — " + ru(err, 1) + " %.");
     });
-    html += tile("", IC.shield, ru(cov, 1) + " %", "Покрытие P10–P90", "");
+    html += tile("", IC.shield, ru(cov, 1) + " %", "Покрытие P10–P90",
+      "<b>Историческая метрика, а не оценка этого выпуска.</b> Доля часов января 2026, попавших в " +
+      "почасовой коридор P10–P90: " + ru(cov, 1) + " % при номинале 80 %. Суточный коридор в сводке " +
+      "для заявки калиброван отдельно, его измеренное покрытие " + loo + ".");
     if (delta === null) {
-      html += tile("", IC.chart, "—", "Прошлого выпуска нет", "");
+      html += tile("", IC.chart, "—", "Прошлого выпуска нет",
+        "<b>Сравнивать не с чем:</b> это первый выпуск периода, выпуска предыдущего дня не существует. " +
+        "Отсутствие сравнения не означает, что прогноз стабилен.");
     } else {
       var dir = delta < 0 ? "down" : "up";
       html += tile("delta " + dir, delta < 0 ? IC.down : IC.up,
-        (delta > 0 ? "+" : "−") + ru(Math.abs(delta), 1) + " %", "к прошлому выпуску", "");
+        (delta > 0 ? "+" : "−") + ru(Math.abs(delta), 1) + " %", "к прошлому выпуску",
+        "<b>Среднее изменение прогноза станции</b> на " + cnt + " часах, пересекающихся с выпуском " +
+        "предыдущего дня. Знак показывает направление, но для заявки важна сама величина изменения " +
+        "в любую сторону. Порог, при котором агент запускает пересчёт, — 0,15 доли номинала.");
     }
-    $("kpis").innerHTML = html;
+    var box = $("kpis");
+    box.innerHTML = html;
+    box.style.setProperty("--kpi-cols", String(box.children.length));
   }
-  function tile(cls, icon, value, label) {
-    return '<div class="kpi ' + cls + '"><span class="badge-ic">' + svgIc(icon, 20) + '</span>' +
+  function tile(cls, icon, value, label, hint) {
+    return '<div class="kpi ' + cls + '"' + (hint ? ha(hint) : "") + '><span class="badge-ic">' + svgIc(icon, 20) + '</span>' +
       '<span><span class="v">' + value + '</span><span class="k">' + label + '</span></span></div>';
   }
 
@@ -1064,6 +1176,8 @@ footer .wrap { display: flex; gap: 16px; flex-wrap: wrap; justify-content: space
     save_forecast: "Сохранение",
     llm_fallback: "Откат на детерминированный план"
   };
+  /* числа в журнале агента записаны с точкой: на витрине приводим к русскому формату */
+  function ruText(x) { return String(x).replace(/(\d)\.(\d)/g, "$1,$2"); }
   function stepDetail(t) {
     var r = t.result || {};
     switch (t.tool) {
@@ -1119,23 +1233,35 @@ footer .wrap { display: flex; gap: 16px; flex-wrap: wrap; justify-content: space
         '</span>' +
         '<span class="body"><span class="nm"><span class="no">' + no + '.</span> ' +
           (STEP_RU[t.tool] || t.tool) + (rep ? " <span class='no'>(повтор после пересчёта)</span>" : "") +
-        '</span><span class="dt">' + stepDetail(t) + '</span></span>' +
+        '</span><span class="dt">' + ruText(stepDetail(t)) + '</span></span>' +
         '<span class="right">' + stepRight(t) + '</span>';
       ol.appendChild(li);
     });
 
+    var th = D.thresholds || { cut_in: 3, rated: 11.5, storm: 22 };
+    var scope = "Посчитано по показанному горизонту (" + n + " ч); трасса и заключение относятся " +
+      "к полному выпуску на 48 ч.";
     $("flags").innerHTML =
-      flag(IC.calm, "Штиль", rk.calm + " ч") +
-      flag(IC.chart, "Номинал", rk.rated + " ч") +
-      flag(IC.storm, "Шторм", rk.storm + " ч") +
-      flag(IC.spread, "Разница турбин", ru(rk.spread, 3) + " н.");
+      flag(IC.calm, "Штиль", rk.calm + " ч",
+        "<b>Часов с прогнозной скоростью ветра ниже " + ru(th.cut_in, 1) + " м/с</b> — турбина не " +
+        "запускается, выработка близка к нулю. " + scope) +
+      flag(IC.chart, "Номинал", rk.rated + " ч",
+        "<b>Часов со скоростью от " + ru(th.rated, 1) + " м/с</b> — машина на полке номинальной " +
+        "мощности: дальнейший рост ветра выработку уже не увеличивает. " + scope) +
+      flag(IC.storm, "Шторм", rk.storm + " ч",
+        "<b>Часов со скоростью от " + ru(th.storm, 1) + " м/с</b> — буревая защита останавливает " +
+        "турбину, прогноз на эти часы обнуляется. " + scope) +
+      flag(IC.spread, "Разница турбин", ru(rk.spread, 3) + " н.",
+        "<b>Максимальная за горизонт разница прогноза двух машин</b>, в долях номинала. Турбины " +
+        "стоят в 400 м друг от друга, погода у них одна, поэтому различие невелико и отражает " +
+        "разные кривые мощности, а не разный ветер. " + scope);
 
     var box = $("banner");
     if (log.recalculated) {
       var rc = traceFind(log, "recalculate") || {};
       box.innerHTML = '<div class="banner red"><span class="bi">' +
         svgIc('<path d="M12 8v5M12 16.5v.1"/><circle cx="12" cy="12" r="9.2"/>', 17) +
-        '</span><span><b>Выполнен пересчёт</b>' + (rc.trigger_detail || "") +
+        '</span><span><b>Выполнен пересчёт</b>' + ruText(rc.trigger_detail || "") +
         (rc.rows_zeroed ? ". Обнулено строк по буревой защите: " + rc.rows_zeroed : "") + '</span></div>';
     } else {
       box.innerHTML = '<div class="banner green"><span class="bi">' +
@@ -1146,11 +1272,11 @@ footer .wrap { display: flex; gap: 16px; flex-wrap: wrap; justify-content: space
           : "изменение " + ru(a.input_change_vs_previous_issue, 3) + " ниже порога " + ru(a.update_threshold, 2)) +
         '</span></div>';
     }
-    $("conclusion").textContent = fixConclusion(log.conclusion || "", a)
+    $("conclusion").textContent = ruText(fixConclusion(log.conclusion || "", a))
       + (n === 24 ? " (заключение относится к полному выпуску на 48 часов; на экране показаны первые сутки)" : "");
   }
-  function flag(icon, k, v) {
-    return '<div class="flag"><span class="fi">' + svgIc(icon, 17) + '</span>' +
+  function flag(icon, k, v, hint) {
+    return '<div class="flag"' + (hint ? ha(hint) : "") + '><span class="fi">' + svgIc(icon, 17) + '</span>' +
       '<div class="k">' + k + '</div><div class="v">' + v + '</div></div>';
   }
 
@@ -1272,13 +1398,23 @@ footer .wrap { display: flex; gap: 16px; flex-wrap: wrap; justify-content: space
     var t1a = m.turbine_1.lead1.blend, t2a = m.turbine_2.lead1.blend;
     var t1b = m.turbine_1.lead2.blend, t2b = m.turbine_2.lead2.blend;
     var html = "";
-    html += mtile(IC.chart, ru(t1a.nmae_pct, 1) + " %", "nMAE 24 ч<br>Т2 " + ru(t2a.nmae_pct, 1) + " %");
-    html += mtile(IC.chart, ru(t1b.nmae_pct, 1) + " %", "nMAE 48 ч<br>Т2 " + ru(t2b.nmae_pct, 1) + " %");
-    html += mtile(IC.shield, ru(c.turbine_1 * 100, 1) + " %", "Покрытие<br>P10–P90");
+    var base = "<b>Средняя абсолютная ошибка</b> в процентах от номинальной мощности, честная " +
+      "валидация января 2026: модель обучена только до 31 декабря 2025. Январь оказался лёгким " +
+      "месяцем — на декабре 2025 тот же контур даёт 19,2–19,7 %, а стандартная ошибка самой оценки " +
+      "около 1 пункта, поэтому различия меньше пункта недостоверны.";
+    html += mtile(IC.chart, ru(t1a.nmae_pct, 1) + " %", "nMAE 24 ч<br>Т2 " + ru(t2a.nmae_pct, 1) + " %",
+      "Горизонт 24 часа: турбина 1 — " + ru(t1a.nmae_pct, 1) + " %, турбина 2 — " + ru(t2a.nmae_pct, 1) + " %. " + base);
+    html += mtile(IC.chart, ru(t1b.nmae_pct, 1) + " %", "nMAE 48 ч<br>Т2 " + ru(t2b.nmae_pct, 1) + " %",
+      "Горизонт 48 часов: турбина 1 — " + ru(t1b.nmae_pct, 1) + " %, турбина 2 — " + ru(t2b.nmae_pct, 1) + " %. " + base);
+    html += mtile(IC.shield, ru(c.turbine_1 * 100, 1) + " %", "Покрытие<br>P10–P90",
+      "<b>Доля часов января 2026, попавших в почасовой коридор</b> P10–P90: " +
+      ru(c.turbine_1 * 100, 1) + " % при номинале 80 %. Это точность модели на отложенном месяце, " +
+      "а не надёжность конкретного выпуска. Суточный коридор калиброван отдельно, его покрытие " +
+      dailyCoverageTxt() + ".");
     $("mtiles").innerHTML = html;
   }
-  function mtile(icon, v, k) {
-    return '<div class="mtile"><span class="badge-ic">' + svgIc(icon, 18) + '</span>' +
+  function mtile(icon, v, k, hint) {
+    return '<div class="mtile"' + (hint ? ha(hint) : "") + '><span class="badge-ic">' + svgIc(icon, 18) + '</span>' +
       '<span style="min-width:0"><span class="v">' + v + '</span><span class="k">' + k + '</span></span></div>';
   }
 
@@ -1309,11 +1445,12 @@ footer .wrap { display: flex; gap: 16px; flex-wrap: wrap; justify-content: space
 
     /* архивный слой прогноза, доступный на дату выпуска */
     $("v-weather").textContent = "Open-Meteo · выпуски суток " + dmy(it.issue_date + "T") + "." + it.issue_date.slice(0, 4);
-    var wc = $("v-weather").closest(".chip");
-    if (wc) wc.title = "Прогнозы, выпущенные в течение суток " + it.issue_date + " и известные к 23:59 этих суток. "
-      + "Слой previous_day1 закрывает сутки D+1, previous_day2 — сутки D+2; оба построены на выпусках дня D. "
-      + "Фактическая погода не используется.";
-    $("chip-weather").title = D.source.note + ". Факт погоды не используется: на дату выпуска он ещё не существовал.";
+    $("chip-weather").removeAttribute("title");
+    $("chip-weather").setAttribute("data-hint",
+      "<b>" + D.source.weather + ".</b> Используются только прогнозы, выпущенные в течение суток " +
+      it.issue_date + " и известные к 23:59 этих суток: слой previous_day1 закрывает первые сутки, " +
+      "previous_day2 — вторые, оба построены на выпусках дня выпуска. Фактическая погода не " +
+      "применяется — на дату выпуска её ещё не существовало.");
     var w1 = D.model.weights.turbine_1, w2 = D.model.weights.turbine_2;
     var pass = [
       ["Момент выпуска", "конец суток " + it.issue_date + " (23:59, местное время Алматы)"],
@@ -1335,16 +1472,24 @@ footer .wrap { display: flex; gap: 16px; flex-wrap: wrap; justify-content: space
     var q = traceFind(log, "check_input_quality"), box = $("quality");
     var okIc = svgIc('<path d="M5 12.5l4.5 4.5L19 7.5"/>', 16);
     var badIc = svgIc('<path d="M12 8v5M12 16.5v.1"/><circle cx="12" cy="12" r="9.2"/>', 16);
+    var qBase = "<b>Результат инструмента контроля качества входа</b> — шага, который отличает агента " +
+      "от жёсткого конвейера. Проверяются пропуски, неполный горизонт, застрявший датчик и физически " +
+      "невозможные значения. При вердикте fail выпуск не публикуется вовсе.";
     if (!q) { box.className = "status"; box.innerHTML = okIc + "Данные проверены"; }
     else if (q.verdict === "ok") { box.className = "status"; box.innerHTML = okIc + "Данные актуальны"; }
     else if (q.verdict === "warn") { box.className = "status warn"; box.innerHTML = badIc + "Замечания: " + (q.findings || []).join("; "); }
     else { box.className = "status fail"; box.innerHTML = badIc + "Выпуск отклонён: " + (q.findings || []).join("; "); }
+    box.setAttribute("data-hint", qBase + (q && q.verdict !== "ok"
+      ? " Вердикт этого выпуска: " + q.verdict + "."
+      : " Вердикт этого выпуска: ok, замечаний нет."));
 
     var llm = it.agent_llm;
     var btnLlm = $("seg-mode").querySelector("[data-m='llm']");
     btnLlm.disabled = !llm;
-    btnLlm.title = llm ? "Для этой даты сохранён живой журнал LLM-оркестрации"
-                       : "Живой журнал LLM-оркестрации сохранён для 05.02, 15.02 и 21.02";
+    btnLlm.removeAttribute("title");
+    btnLlm.setAttribute("data-hint", llm
+      ? "Для этой даты сохранён живой журнал LLM-оркестрации: порядок инструментов выбирала модель."
+      : "Для этой даты живого журнала LLM-оркестрации нет.");
     if (!llm && state.mode === "llm") state.mode = "det";
     Array.prototype.forEach.call($("seg-mode").querySelectorAll("button"), function (b) {
       b.setAttribute("aria-pressed", b.dataset.m === state.mode ? "true" : "false");
@@ -1361,6 +1506,8 @@ footer .wrap { display: flex; gap: 16px; flex-wrap: wrap; justify-content: space
     drawChips(); drawKpis(); drawMain(); drawAgent(); drawBid(); drawHours();
     hideCursor();
     updateRotors();
+    hintHide();   /* блок под курсором мог быть перерисован */
+    hintable();   /* новые data-hint должны получать фокус с клавиатуры */
   }
 
   /* ================= события ================= */

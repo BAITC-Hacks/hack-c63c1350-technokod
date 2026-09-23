@@ -101,10 +101,20 @@ def historical_forecast(site: Site, start: str, end: str) -> pd.DataFrame:
 
 
 def forecast_available_at(site: Site, issue_date: str, horizon_hours: int = 48) -> pd.DataFrame:
-    """Прогноз на следующие horizon_hours часов, каким он был на дату issue_date.
+    """Прогноз на следующие horizon_hours часов по состоянию на КОНЕЦ суток issue_date.
 
-    Часы 0–24 после issue_date берутся из *_previous_day1, часы 24–48 из *_previous_day2:
-    оба слоя содержат значения из прогнозов, выпущенных не позже issue_date.
+    Момент выпуска — операционный дедлайн в конце дня D (23:59 местного времени),
+    когда диспетчер готовит заявку на следующие сутки. Покрываются дни D+1 и D+2.
+
+    Часы дня D+1 берутся из *_previous_day1, часы дня D+2 из *_previous_day2.
+    В Previous Runs API слой previous_dayN для часа T содержит значение из прогноза,
+    выпущенного за N суток до T. Отсюда: для часа T дня D+1 это прогноз от того же
+    часа дня D, для часа T дня D+2 — тоже прогноз от того же часа дня D. То есть все
+    использованные прогнозы выпущены в пределах суток D и известны к 23:59 этого дня.
+
+    Важно: это НЕ состояние на полночь дня D. Прогноз на 23:00 дня D+1 опирается на
+    выпуск примерно 23:00 дня D. Поэтому момент выпуска определён как конец суток,
+    а не их начало — иначе часть данных оказалась бы из будущего относительно метки.
     """
     issue = pd.Timestamp(issue_date).normalize()
     start = issue + pd.Timedelta(days=1)
@@ -114,7 +124,7 @@ def forecast_available_at(site: Site, issue_date: str, horizon_hours: int = 48) 
     rows = []
     for _, r in raw.iterrows():
         lead = 1 if r["ts"] < start + pd.Timedelta(hours=24) else 2
-        row = {"ts": r["ts"], "issue_date": issue, "lead_day": lead}
+        row = {"ts": r["ts"], "issue_date": issue, "lead_day": lead}  # issue_date — сутки выпуска, момент = их конец
         for v in BASE_VARS:
             row[v] = r[f"{v}_previous_day{lead}"]
         rows.append(row)

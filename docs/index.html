@@ -1059,7 +1059,7 @@ footer .wrap { display: flex; gap: 16px; flex-wrap: wrap; justify-content: space
     $("agent-mode").innerHTML = log.llm_used
       ? "<span class='badge'>порядок инструментов выбрала модель</span>"
       : "<span class='badge'>детерминированный план</span>";
-    $("agent-when").textContent = "выпуск " + dmy(it.issue_date + "T") + "." + it.issue_date.slice(0, 4) + " · 00:00";
+    $("agent-when").textContent = "выпуск к концу " + dmy(it.issue_date + "T") + "." + it.issue_date.slice(0, 4);
 
     var ol = $("steps");
     clear(ol);
@@ -1259,7 +1259,11 @@ footer .wrap { display: flex; gap: 16px; flex-wrap: wrap; justify-content: space
       " (Алматы) · " + (state.mw ? "слева доля номинала, справа МВт" : "доля номинала станции");
 
     /* архивный слой прогноза, доступный на дату выпуска */
-    $("v-weather").textContent = "Open-Meteo · архив на " + dmy(it.issue_date + "T") + "." + it.issue_date.slice(0, 4);
+    $("v-weather").textContent = "Open-Meteo · выпуски суток " + dmy(it.issue_date + "T") + "." + it.issue_date.slice(0, 4);
+    var wc = $("v-weather").closest(".chip");
+    if (wc) wc.title = "Прогнозы, выпущенные в течение суток " + it.issue_date + " и известные к 23:59 этих суток. "
+      + "Слой previous_day1 закрывает сутки D+1, previous_day2 — сутки D+2; оба построены на выпусках дня D. "
+      + "Фактическая погода не используется.";
     $("chip-weather").title = D.source.note + ". Факт погоды не используется: на дату выпуска он ещё не существовал.";
     $("v-model").textContent = D.model.commit;
     $("v-model").parentNode.title = "Обучена " + D.model.trained_at + ". Веса смеси турбины 1: кривая " +
@@ -1322,7 +1326,7 @@ footer .wrap { display: flex; gap: 16px; flex-wrap: wrap; justify-content: space
     D.issues.forEach(function (it, k) {
       var o = document.createElement("option");
       o.value = k;
-      o.textContent = dayLong(it.issue_date + "T") + " " + it.issue_date.slice(0, 4) + " · 00:00" +
+      o.textContent = dayLong(it.issue_date + "T") + " " + it.issue_date.slice(0, 4) + " · к концу суток" +
         (it.agent && it.agent.recalculated ? " · пересчёт" : "");
       sel.appendChild(o);
     });

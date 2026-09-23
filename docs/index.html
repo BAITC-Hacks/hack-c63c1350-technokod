@@ -410,6 +410,12 @@ summary:hover { color: var(--link); }
 .note { font-size: 12px; line-height: 18px; color: var(--text-muted); margin-top: 8px; }
 footer { border-top: 1px solid var(--border); padding: 18px 0 34px; color: var(--text-muted); font-size: 12.5px; }
 footer .wrap { display: flex; gap: 16px; flex-wrap: wrap; justify-content: space-between; }
+.passport { width: 100%; margin-bottom: 14px; }
+.passport summary { cursor: pointer; color: var(--text-secondary); font-weight: 600; }
+.passport dl { display: grid; grid-template-columns: max-content 1fr; gap: 4px 18px; margin: 10px 0 0; }
+.passport dt { color: var(--text-muted); }
+.passport dd { margin: 0; color: var(--text-secondary); }
+.passport code { font-size: 12px; }
 </style>
 </head>
 <body>
@@ -466,10 +472,6 @@ footer .wrap { display: flex; gap: 16px; flex-wrap: wrap; justify-content: space
     <div class="chip" id="chip-weather">
       <svg class="ic" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M7 18h10.5a3.5 3.5 0 0 0 .3-7 5.5 5.5 0 0 0-10.6-1.3A4 4 0 0 0 7 18z"/></svg>
       <span class="k">Погода</span><span class="v" id="v-weather">Open-Meteo</span>
-    </div>
-    <div class="chip">
-      <svg class="ic" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><path d="M12 2.8 20.5 7v10L12 21.2 3.5 17V7z"/><path d="M3.5 7 12 11.3 20.5 7M12 11.3V21"/></svg>
-      <span class="k">Модель</span><code id="v-model">—</code>
     </div>
     <div class="chip seg" id="seg-mode" role="group" aria-label="Режим агента">
       <button type="button" data-m="det" aria-pressed="true">Детерминированный</button>
@@ -671,6 +673,12 @@ footer .wrap { display: flex; gap: 16px; flex-wrap: wrap; justify-content: space
 </main>
 
 <footer>
+  <div class="wrap">
+    <details class="passport">
+      <summary>Паспорт выпуска — что именно посчитано и чем</summary>
+      <dl id="passport-body"></dl>
+    </details>
+  </div>
   <div class="wrap">
     <span>WindAgent — команда Technokod, HackAlem AI 2026, кейс Самрук-Казына</span>
     <span id="built"></span>
@@ -1048,7 +1056,7 @@ footer .wrap { display: flex; gap: 16px; flex-wrap: wrap; justify-content: space
     switch (t.tool) {
       case "get_weather": return "Open-Meteo";
       case "check_input_quality": return r.verdict === "ok" ? "ok" : r.verdict;
-      case "prepare_and_predict": return "модель " + D.model.commit;
+      case "prepare_and_predict": return "модель " + D.model.fingerprint;
       case "analyze": return r.needs_recalculation ? "нужен пересчёт" : "ограничений нет";
       case "save_forecast": return r.confidence ? "достоверность " + r.confidence : "";
       default: return "";
@@ -1272,10 +1280,23 @@ footer .wrap { display: flex; gap: 16px; flex-wrap: wrap; justify-content: space
       + "Слой previous_day1 закрывает сутки D+1, previous_day2 — сутки D+2; оба построены на выпусках дня D. "
       + "Фактическая погода не используется.";
     $("chip-weather").title = D.source.note + ". Факт погоды не используется: на дату выпуска он ещё не существовал.";
-    $("v-model").textContent = D.model.commit;
-    $("v-model").parentNode.title = "Обучена " + D.model.trained_at + ". Веса смеси турбины 1: кривая " +
-      ru(D.model.weights.turbine_1.curve, 1) + ", двухэтапная " + ru(D.model.weights.turbine_1.two_stage, 1) +
-      ", бустинг " + ru(D.model.weights.turbine_1.gbm, 1) + ".";
+    var w1 = D.model.weights.turbine_1, w2 = D.model.weights.turbine_2;
+    var pass = [
+      ["Момент выпуска", "конец суток " + it.issue_date + " (23:59, местное время Алматы)"],
+      ["Отсечка входа", "прогнозы, выпущенные в течение суток " + it.issue_date + "; фактическая погода не используется"],
+      ["Источник погоды", D.source.weather + " — " + D.source.note],
+      ["Горизонт", "сутки " + it.ts[0].slice(0, 10) + " и " + it.ts[it.ts.length - 1].slice(0, 10) + ", шаг час"],
+      ["Отпечаток модели", "<code>" + D.model.fingerprint + "</code> — хеш содержимого models/*.joblib, меняется только при переобучении"],
+      ["Обучены", D.model.trained_at + ", объём " + D.model.train_rows.turbine_1 + " и " + D.model.train_rows.turbine_2 + " строк"],
+      ["Веса смеси", "Т1 кривая " + ru(w1.curve, 1) + " / двухэтапная " + ru(w1.two_stage, 1) + " / бустинг " + ru(w1.gbm, 1)
+        + "; Т2 " + ru(w2.curve, 1) + " / " + ru(w2.two_stage, 1) + " / " + ru(w2.gbm, 1)],
+      ["Код", "<code>" + D.model.code_commit + "</code>"],
+      ["Протокол оценки", "обучение до 31.12.2025, честная валидация на январе 2026; метрики в docs/metrics.json"],
+      ["Режим выпуска", log && log.llm_used ? "порядок инструментов выбрала LLM" : "детерминированный планировщик"]
+    ];
+    $("passport-body").innerHTML = pass.map(function (r) {
+      return "<dt>" + r[0] + "</dt><dd>" + r[1] + "</dd>";
+    }).join("");
 
     var q = traceFind(log, "check_input_quality"), box = $("quality");
     var okIc = svgIc('<path d="M5 12.5l4.5 4.5L19 7.5"/>', 16);

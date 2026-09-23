@@ -15,6 +15,7 @@
 """
 from __future__ import annotations
 
+import hashlib
 import json
 import subprocess
 import sys
@@ -97,8 +98,23 @@ def read_log(path: Path) -> dict | None:
     }
 
 
+def model_fingerprint() -> str:
+    """Отпечаток обученных моделей: хеш содержимого joblib-файлов.
+
+    Раньше сюда шёл коммит репозитория, но он менялся от любой правки — например
+    от вёрстки дашборда — и подпись «Модель <коммит>» вводила в заблуждение.
+    Отпечаток меняется тогда и только тогда, когда переобучены сами модели.
+    """
+    h = hashlib.sha256()
+    for t in (1, 2):
+        f = Path("models") / f"turbine_{t}.joblib"
+        if f.exists():
+            h.update(f.read_bytes())
+    return h.hexdigest()[:7] if h.hexdigest() != hashlib.sha256().hexdigest() else ""
+
+
 def model_version() -> dict:
-    """Версия модели: коммит репозитория, время обучения и веса смеси."""
+    """Версия модели: отпечаток обученных файлов, коммит кода, время обучения и веса."""
     try:
         commit = subprocess.run(["git", "rev-parse", "--short", "HEAD"], capture_output=True, text=True, timeout=10).stdout.strip()
     except Exception:
@@ -107,7 +123,8 @@ def model_version() -> dict:
     joblib = Path("models/turbine_1.joblib")
     trained = datetime.fromtimestamp(joblib.stat().st_mtime).strftime("%Y-%m-%d %H:%M") if joblib.exists() else None
     return {
-        "commit": commit,
+        "fingerprint": model_fingerprint(),
+        "code_commit": commit,
         "trained_at": trained,
         "weights": {t: m[t]["weights"] for t in m},
         "metrics": {t: m[t]["honest_jan2026"] for t in m},

@@ -132,7 +132,7 @@ svg.ic { flex: none; display: block; }
 .chip.seg button[aria-pressed="true"] { background: var(--brand-600); color: #fff; font-weight: 600; }
 .chip.seg button:disabled { opacity: .4; cursor: not-allowed; }
 .status {
-  margin-left: auto; display: inline-flex; align-items: center; gap: 8px; height: 38px; padding: 0 14px;
+  display: inline-flex; align-items: center; gap: 8px; height: 38px; padding: 0 14px;
   border-radius: var(--radius-control); font-size: 13px; font-weight: 600;
   background: var(--ok-bg); border: 1px solid var(--ok-br); color: var(--ok);
 }
@@ -558,7 +558,7 @@ footer .wrap { display: flex; gap: 16px; flex-wrap: wrap; justify-content: space
       <button type="button" data-p="3">3,0</button>
       <button type="button" data-p="3.5">3,5</button>
     </div>
-    <div class="status" id="quality"></div>
+    <div class="status" id="quality" hidden></div>
   </div>
 
   <!-- 2. KPI -->
@@ -1722,10 +1722,10 @@ footer .wrap { display: flex; gap: 16px; flex-wrap: wrap; justify-content: space
     var qBase = "<b>Результат инструмента контроля качества входа</b> — шага, который отличает агента " +
       "от жёсткого конвейера. Проверяются пропуски, неполный горизонт, застрявший датчик и физически " +
       "невозможные значения. При вердикте fail выпуск не публикуется вовсе.";
-    if (!q) { box.className = "status"; box.innerHTML = okIc + "Данные проверены"; }
-    else if (q.verdict === "ok") { box.className = "status"; box.innerHTML = okIc + "Данные актуальны"; }
-    else if (q.verdict === "warn") { box.className = "status warn"; box.innerHTML = badIc + "Замечания: " + (q.findings || []).join("; "); }
-    else { box.className = "status fail"; box.innerHTML = badIc + "Выпуск отклонён: " + (q.findings || []).join("; "); }
+    if (!q) { box.hidden = true; return; }
+    else if (q.verdict === "ok") { box.hidden = true; return; }   /* штатный вход — молчим */
+    else if (q.verdict === "warn") { box.hidden = false; box.className = "status warn"; box.innerHTML = badIc + "Замечания: " + (q.findings || []).join("; "); }
+    else { box.hidden = false; box.className = "status fail"; box.innerHTML = badIc + "Выпуск отклонён: " + (q.findings || []).join("; "); }
     box.setAttribute("data-hint", qBase + (q && q.verdict !== "ok"
       ? " Вердикт этого выпуска: " + q.verdict + "."
       : " Вердикт этого выпуска: ok, замечаний нет."));

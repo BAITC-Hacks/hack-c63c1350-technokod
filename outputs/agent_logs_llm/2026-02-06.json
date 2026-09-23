@@ -1,6 +1,6 @@
 {
-  "issue_date": "2026-02-15",
-  "llm_used": false,
+  "issue_date": "2026-02-06",
+  "llm_used": true,
   "published": true,
   "confidence": "обычная",
   "quality": {
@@ -12,40 +12,40 @@
   },
   "recalculated": true,
   "analysis": {
-    "calm_hours": 0,
-    "rated_hours": 0,
+    "calm_hours": 9,
+    "rated_hours": 5,
     "storm_hours": 0,
-    "turbine_spread_max": 0.069,
+    "turbine_spread_max": 0.06,
     "mean_cf": {
-      "1": 0.379,
-      "2": 0.37
+      "1": 0.442,
+      "2": 0.439
     },
     "previous_issue_available": true,
     "previous_issue_source": "передан вызывающим",
     "input_update_vs_previous_issue": {
       "overlap_hours": 24,
-      "mean_abs_change": 0.164,
-      "max_abs_change": 0.441
+      "mean_abs_change": 0.156,
+      "max_abs_change": 0.582
     },
-    "input_change_vs_previous_issue": 0.164,
+    "input_change_vs_previous_issue": 0.156,
     "update_threshold": 0.15,
     "needs_recalculation": true
   },
-  "conclusion": "Прогноз на 48 ч от 2026-02-15: средняя нормализованная мощность T1 0.38, T2 0.37; ожидаемая выработка 18.2 и 17.7 норм·ч. Часов штиля 0, часов на номинале 0, штормовых 0. Относительно прогноза предыдущего дня входные данные изменились в среднем на 0.164 при пороге пересчёта 0.15. Выполнен повторный расчёт.",
+  "conclusion": "Прогноз выпущен на 48 часов для турбин 1 и 2. Ожидаемая выработка: турбина 1 — 21.2 ч-нормы, турбина 2 — 21.1 ч-нормы; средний коэффициент использования мощности около 0.44 для обеих. Риски умеренные: 9 часов штиля, штормовых часов нет, поэтому существенного ограничения по ветру не ожидается. По сравнению с прошлым выпуском входные данные заметно обновились, поэтому потребовался пересчёт; итоговая достоверность обычная.",
   "trace": [
     {
       "tool": "get_weather",
       "result": {
         "hours": 48,
-        "from": "2026-02-16 00:00:00",
-        "to": "2026-02-17 23:00:00",
+        "from": "2026-02-07 00:00:00",
+        "to": "2026-02-08 23:00:00",
         "lead1_hours": 24,
         "lead2_hours": 24,
-        "ws100_min": 3.4,
-        "ws100_mean": 5.9,
-        "ws100_max": 7.7,
-        "temp_min": 0.4,
-        "temp_max": 9.6,
+        "ws100_min": 0.6,
+        "ws100_mean": 6.6,
+        "ws100_max": 12.4,
+        "temp_min": -2.8,
+        "temp_max": 4.0,
         "source": "Open-Meteo Previous Runs, выпуск не позже даты прогноза"
       }
     },
@@ -65,34 +65,34 @@
         "hours": 48,
         "rows": 96,
         "mean_cf": {
-          "1": 0.379,
-          "2": 0.37
+          "1": 0.442,
+          "2": 0.439
         },
         "energy_norm_h": {
-          "1": 18.2,
-          "2": 17.7
+          "1": 21.2,
+          "2": 21.1
         }
       }
     },
     {
       "tool": "analyze",
       "result": {
-        "calm_hours": 0,
-        "rated_hours": 0,
+        "calm_hours": 9,
+        "rated_hours": 5,
         "storm_hours": 0,
-        "turbine_spread_max": 0.069,
+        "turbine_spread_max": 0.06,
         "mean_cf": {
-          "1": 0.379,
-          "2": 0.37
+          "1": 0.442,
+          "2": 0.439
         },
         "previous_issue_available": true,
         "previous_issue_source": "передан вызывающим",
         "input_update_vs_previous_issue": {
           "overlap_hours": 24,
-          "mean_abs_change": 0.164,
-          "max_abs_change": 0.441
+          "mean_abs_change": 0.156,
+          "max_abs_change": 0.582
         },
-        "input_change_vs_previous_issue": 0.164,
+        "input_change_vs_previous_issue": 0.156,
         "update_threshold": 0.15,
         "needs_recalculation": true
       }
@@ -103,12 +103,12 @@
         "hours": 48,
         "rows": 96,
         "mean_cf": {
-          "1": 0.379,
-          "2": 0.37
+          "1": 0.442,
+          "2": 0.439
         },
         "energy_norm_h": {
-          "1": 18.2,
-          "2": 17.7
+          "1": 21.2,
+          "2": 21.1
         }
       }
     },
@@ -116,13 +116,13 @@
       "tool": "recalculate",
       "result": {
         "trigger": "input_update",
-        "trigger_detail": "расхождение с выпуском 2026-02-14 равно 0.164 при пороге 0.15",
+        "trigger_detail": "расхождение с выпуском 2026-02-05 равно 0.156 при пороге 0.15",
         "trigger_values": {
-          "mean_abs_change": 0.164,
+          "mean_abs_change": 0.156,
           "threshold": 0.15,
-          "previous_issue": "2026-02-14"
+          "previous_issue": "2026-02-05"
         },
-        "reason_passed": "расхождение с выпуском 2026-02-14 равно 0.164 при пороге 0.15",
+        "reason_passed": "input_change_vs_previous_issue=0.156 exceeds threshold 0.15",
         "input_changed": false,
         "note": "повторный опрос архива на прошедшую дату возвращает тот же срез, поэтому input_changed=false; в промышленном режиме здесь пришёл бы новый выпуск прогноза погоды",
         "storm_hours": 0,
@@ -133,7 +133,7 @@
       "tool": "save_forecast",
       "result": {
         "published": true,
-        "path": "outputs\\forecasts\\2026-02-15.csv",
+        "path": "outputs\\forecasts\\2026-02-06.csv",
         "rows": 96,
         "confidence": "обычная"
       }

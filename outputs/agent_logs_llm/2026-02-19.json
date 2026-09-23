@@ -1,6 +1,6 @@
 {
-  "issue_date": "2026-02-05",
-  "llm_used": false,
+  "issue_date": "2026-02-19",
+  "llm_used": true,
   "published": true,
   "confidence": "обычная",
   "quality": {
@@ -12,40 +12,40 @@
   },
   "recalculated": false,
   "analysis": {
-    "calm_hours": 8,
-    "rated_hours": 8,
+    "calm_hours": 4,
+    "rated_hours": 3,
     "storm_hours": 0,
-    "turbine_spread_max": 0.051,
+    "turbine_spread_max": 0.074,
     "mean_cf": {
-      "1": 0.443,
-      "2": 0.444
+      "1": 0.371,
+      "2": 0.371
     },
     "previous_issue_available": true,
     "previous_issue_source": "передан вызывающим",
     "input_update_vs_previous_issue": {
       "overlap_hours": 24,
-      "mean_abs_change": 0.131,
-      "max_abs_change": 0.779
+      "mean_abs_change": 0.128,
+      "max_abs_change": 0.494
     },
-    "input_change_vs_previous_issue": 0.131,
+    "input_change_vs_previous_issue": 0.128,
     "update_threshold": 0.15,
     "needs_recalculation": false
   },
-  "conclusion": "Прогноз на 48 ч от 2026-02-05: средняя нормализованная мощность T1 0.44, T2 0.44; ожидаемая выработка 21.2 и 21.3 норм·ч. Часов штиля 8, часов на номинале 8, штормовых 0. Относительно прогноза предыдущего дня входные данные изменились в среднем на 0.131 при пороге пересчёта 0.15. Пересчёт не потребовался.",
+  "conclusion": "Прогноз на 48 часов выпущен и сохранён. Ожидаемая средняя выработка составляет 17.8 нормо-часа на каждую турбину, при этом обе турбины показывают одинаковый прогноз. Риски умеренные: есть 4 часа штиля, но часов шторма нет, поэтому буревая защита не требуется. Относительно прошлого выпуска изменения небольшие, пересчёт не потребовался.",
   "trace": [
     {
       "tool": "get_weather",
       "result": {
         "hours": 48,
-        "from": "2026-02-06 00:00:00",
-        "to": "2026-02-07 23:00:00",
+        "from": "2026-02-20 00:00:00",
+        "to": "2026-02-21 23:00:00",
         "lead1_hours": 24,
         "lead2_hours": 24,
-        "ws100_min": 0.9,
-        "ws100_mean": 7.1,
-        "ws100_max": 16.0,
-        "temp_min": -2.0,
-        "temp_max": 6.5,
+        "ws100_min": 1.1,
+        "ws100_mean": 6.3,
+        "ws100_max": 12.2,
+        "temp_min": 2.8,
+        "temp_max": 14.8,
         "source": "Open-Meteo Previous Runs, выпуск не позже даты прогноза"
       }
     },
@@ -65,34 +65,34 @@
         "hours": 48,
         "rows": 96,
         "mean_cf": {
-          "1": 0.443,
-          "2": 0.444
+          "1": 0.371,
+          "2": 0.371
         },
         "energy_norm_h": {
-          "1": 21.2,
-          "2": 21.3
+          "1": 17.8,
+          "2": 17.8
         }
       }
     },
     {
       "tool": "analyze",
       "result": {
-        "calm_hours": 8,
-        "rated_hours": 8,
+        "calm_hours": 4,
+        "rated_hours": 3,
         "storm_hours": 0,
-        "turbine_spread_max": 0.051,
+        "turbine_spread_max": 0.074,
         "mean_cf": {
-          "1": 0.443,
-          "2": 0.444
+          "1": 0.371,
+          "2": 0.371
         },
         "previous_issue_available": true,
         "previous_issue_source": "передан вызывающим",
         "input_update_vs_previous_issue": {
           "overlap_hours": 24,
-          "mean_abs_change": 0.131,
-          "max_abs_change": 0.779
+          "mean_abs_change": 0.128,
+          "max_abs_change": 0.494
         },
-        "input_change_vs_previous_issue": 0.131,
+        "input_change_vs_previous_issue": 0.128,
         "update_threshold": 0.15,
         "needs_recalculation": false
       }
@@ -101,7 +101,7 @@
       "tool": "save_forecast",
       "result": {
         "published": true,
-        "path": "outputs\\forecasts\\2026-02-05.csv",
+        "path": "outputs\\forecasts\\2026-02-19.csv",
         "rows": 96,
         "confidence": "обычная"
       }

@@ -21,7 +21,7 @@
       "2": 0.354
     },
     "previous_issue_available": true,
-    "previous_issue_source": "прочитан с диска: 2026-02-20.csv",
+    "previous_issue_source": "передан вызывающим",
     "input_update_vs_previous_issue": {
       "overlap_hours": 24,
       "mean_abs_change": 0.184,
@@ -86,7 +86,7 @@
           "2": 0.354
         },
         "previous_issue_available": true,
-        "previous_issue_source": "прочитан с диска: 2026-02-20.csv",
+        "previous_issue_source": "передан вызывающим",
         "input_update_vs_previous_issue": {
           "overlap_hours": 24,
           "mean_abs_change": 0.184,

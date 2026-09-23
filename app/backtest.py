@@ -51,7 +51,7 @@ def _summary_row(r) -> dict:
 
 
 def backtest(
-    start: str = "2026-01-31",
+    start: str = "2026-01-29",
     end: str = "2026-02-27",
     use_llm: bool | None = False,
     turbines: tuple[int, ...] = (1, 2),
@@ -89,7 +89,8 @@ def build_submission(all_issues: pd.DataFrame) -> pd.DataFrame:
     """Итоговый почасовой ряд февраля: на каждый час свежайший выпуск (lead 1) и выпуск за двое суток (lead 2).
 
     Сетка часов задаётся явно, поэтому строка за каждый час февраля есть заведомо.
-    Для 1 февраля прогноза lead 2 не существует: он потребовал бы выпуск 30 января.
+    Станция считается как среднее долей номинала двух турбин, то есть в тех же единицах,
+    что и отдельная турбина.
     """
     out = pd.DataFrame({"ts": pd.date_range(FEB_START, FEB_END, freq="h")})
     for lead in (1, 2):
@@ -105,12 +106,17 @@ def build_submission(all_issues: pd.DataFrame) -> pd.DataFrame:
             wide = fresh.pivot_table(index="ts", columns="turbine", values=q, aggfunc="last")
             for t in (1, 2):
                 out[f"turbine_{t}_{q[-3:]}"] = out["ts"].map(wide[t]) if t in wide.columns else pd.NA
+    # станционный уровень: прогноз на сутки и на двое суток плюс станционный интервал
     out["farm_mean_lead1"] = out[["turbine_1_lead1", "turbine_2_lead1"]].mean(axis=1)
+    out["farm_mean_lead2"] = out[["turbine_1_lead2", "turbine_2_lead2"]].mean(axis=1)
+    if "turbine_1_p10" in out.columns:
+        out["farm_p10_lead1"] = out[["turbine_1_p10", "turbine_2_p10"]].mean(axis=1)
+        out["farm_p90_lead1"] = out[["turbine_1_p90", "turbine_2_p90"]].mean(axis=1)
     return out
 
 
 def run(
-    start: str = "2026-01-31",
+    start: str = "2026-01-29",
     end: str = "2026-02-27",
     use_llm: bool | None = False,
     horizon_hours: int = 48,

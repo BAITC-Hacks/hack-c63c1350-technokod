@@ -169,7 +169,7 @@ def main(argv: list[str] | None = None) -> int:
     f.add_argument("--horizon", type=int, default=48)
     _add_llm_flags(f)
     b = sub.add_parser("backtest", help="все выпуски тестового периода")
-    b.add_argument("--start", default="2026-01-31")
+    b.add_argument("--start", default="2026-01-29")
     b.add_argument("--end", default="2026-02-27")
     b.add_argument("--horizon", type=int, default=48)
     _add_llm_flags(b)

@@ -9,10 +9,10 @@ venv/
 .pytest_cache/
 # data and outputs
 
-data/cache/
+
 *.duckdb
 *.log
-outputs/
+
 # os / ide
 .DS_Store
 Thumbs.db

@@ -1,0 +1,56 @@
+{
+  "issue_date": "2026-02-16",
+  "recalculated": false,
+  "analysis": {
+    "calm_hours": 2,
+    "rated_hours": 0,
+    "storm_hours": 0,
+    "turbine_spread_max": 0.067,
+    "input_update_vs_previous_issue": {
+      "overlap_hours": 24,
+      "mean_abs_change": 0.075,
+      "max_abs_change": 0.184
+    },
+    "needs_recalculation": false
+  },
+  "conclusion": "Прогноз на 48 ч от 2026-02-16: средняя нормализованная мощность T1 0.49, T2 0.47. Часов штиля 2, часов на номинале 0, штормовых 0. Относительно прогноза предыдущего дня входные данные изменились на 0.075 в среднем.",
+  "trace": [
+    {
+      "tool": "get_weather",
+      "result": {
+        "hours": 48,
+        "from": "2026-02-17 00:00:00",
+        "to": "2026-02-18 23:00:00",
+        "ws100_mean": 6.91,
+        "ws100_max": 11.28,
+        "lead_days": [
+          1,
+          2
+        ]
+      }
+    },
+    {
+      "tool": "prepare_and_predict",
+      "result": {
+        "turbine_1_mean": 0.49,
+        "turbine_2_mean": 0.467,
+        "hours": 48
+      }
+    },
+    {
+      "tool": "analyze",
+      "result": {
+        "calm_hours": 2,
+        "rated_hours": 0,
+        "storm_hours": 0,
+        "turbine_spread_max": 0.067,
+        "input_update_vs_previous_issue": {
+          "overlap_hours": 24,
+          "mean_abs_change": 0.075,
+          "max_abs_change": 0.184
+        },
+        "needs_recalculation": false
+      }
+    }
+  ]
+}

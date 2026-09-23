@@ -160,6 +160,38 @@ select:focus-visible, button:focus-visible, .chart:focus-visible, summary:focus-
 .kpi.delta.up .badge-ic { background: var(--ok-bg); color: var(--ok); }
 .kpi.delta.up .v { color: var(--ok); }
 
+/* ---------- роторы: скорость вращения = прогнозная мощность ---------- */
+@keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+.rotor {
+  transform-box: view-box;
+  animation: spin var(--spin, 2.4s) linear infinite;
+  will-change: transform;
+}
+.brand .rotor { transform-origin: 32px 32px; animation-duration: 10s; }
+.tb .rotor { transform-origin: 36px 30px; }
+.rotor.stopped { animation-play-state: paused; }
+body.tab-hidden .rotor { animation-play-state: paused; }
+@media (prefers-reduced-motion: reduce) { .rotor { animation: none; } }
+
+.sprite { position: absolute; width: 0; height: 0; overflow: hidden; }
+.brand .mark { width: 36px; height: 36px; display: block; border-radius: 9px; }
+
+.turbines { display: flex; align-items: center; gap: 26px; padding: 10px 18px; margin: 0 0 14px; flex-wrap: wrap; }
+.tb { display: flex; align-items: center; gap: 12px; }
+.tb svg { width: 50px; height: 72px; display: block; flex: none; }
+.tb .mast { fill: var(--text-muted); opacity: .5; }
+.tb .nac { fill: var(--text-muted); opacity: .7; }
+.tb .hub { fill: var(--surface); stroke: var(--text-muted); stroke-width: 1.2; }
+#tb1 .rotor { fill: var(--series-1); }
+#tb2 .rotor { fill: var(--series-2); }
+.tb .nm, .tb .val, .tb .sub { display: block; }
+.tb .nm { font-size: 12px; line-height: 16px; color: var(--text-muted); }
+.tb .val { font-size: 20px; line-height: 26px; font-weight: 700; font-variant-numeric: tabular-nums; letter-spacing: -.02em; }
+.tb .sub { font-size: 11.5px; line-height: 16px; color: var(--text-muted); font-variant-numeric: tabular-nums; }
+.turbines .hint { font-size: 12px; line-height: 17px; color: var(--text-muted); max-width: 430px; margin: 0 0 0 auto; }
+.turbines .hint b { color: var(--text-2); font-weight: 600; font-variant-numeric: tabular-nums; }
+@media (max-width: 720px) { .turbines .hint { margin-left: 0; } }
+
 /* ---------- карточки ---------- */
 .card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-card); box-shadow: var(--shadow); }
 main { padding: 0 0 40px; }
@@ -326,10 +358,24 @@ footer .wrap { display: flex; gap: 16px; flex-wrap: wrap; justify-content: space
 </head>
 <body>
 
+<!-- геометрия лопасти: одна на все роторы, три копии с поворотом на 120° -->
+<svg class="sprite" aria-hidden="true" focusable="false"><defs>
+  <path id="bl-lg" d="M30.9 31.2C29.9 23 30.0 13 30.9 5.4Q31.6 3.4 32.6 5.2C33.6 13 34.0 23 33.2 31.2Z"/>
+  <path id="bl-sm" d="M35.0 29.3C34.1 22 34.2 13 35.0 6.0Q35.6 4.2 36.5 5.9C37.4 13 37.7 22 37.0 29.3Z"/>
+</defs></svg>
+
 <header class="topbar">
   <div class="wrap">
     <a class="brand" href="./">
-      <img src="demo/mark.svg" alt="" width="36" height="36">
+      <svg class="mark" viewBox="0 0 64 64" width="36" height="36" aria-hidden="true" focusable="false">
+        <rect width="64" height="64" rx="14" fill="#124A6E"/>
+        <g class="rotor" fill="#FFFFFF">
+          <use href="#bl-lg"/>
+          <use href="#bl-lg" transform="rotate(120 32 32)" fill="#E08A00"/>
+          <use href="#bl-lg" transform="rotate(240 32 32)"/>
+        </g>
+        <circle cx="32" cy="32" r="3.2" fill="#FFFFFF"/>
+      </svg>
       <span style="display:flex;flex-direction:column">
         <b>WindAgent</b>
         <span>прогноз выработки ВЭС</span>
@@ -384,6 +430,49 @@ footer .wrap { display: flex; gap: 16px; flex-wrap: wrap; justify-content: space
 
   <!-- 2. KPI -->
   <section class="kpis" id="kpis" aria-label="Ключевые показатели выпуска"></section>
+
+  <!-- 2а. Роторы: скорость вращения = прогнозная мощность выбранного часа -->
+  <section class="card turbines" aria-label="Прогнозная загрузка турбин">
+    <div class="tb" id="tb1">
+      <svg viewBox="0 0 72 104" aria-hidden="true" focusable="false">
+        <path class="mast" d="M34.2 98 L35.3 32 L36.7 32 L37.8 98 Z"/>
+        <rect class="mast" x="28.5" y="97.4" width="15" height="2.6" rx="1.3"/>
+        <rect class="nac" x="33.2" y="26.6" width="7.6" height="6.8" rx="3.4"/>
+        <g class="rotor">
+          <use href="#bl-sm"/>
+          <use href="#bl-sm" transform="rotate(120 36 30)"/>
+          <use href="#bl-sm" transform="rotate(240 36 30)"/>
+        </g>
+        <circle class="hub" cx="36" cy="30" r="2.6"/>
+      </svg>
+      <span>
+        <span class="nm">Турбина 1</span>
+        <span class="val">—</span>
+        <span class="sub">—</span>
+      </span>
+    </div>
+    <div class="tb" id="tb2">
+      <svg viewBox="0 0 72 104" aria-hidden="true" focusable="false">
+        <path class="mast" d="M34.2 98 L35.3 32 L36.7 32 L37.8 98 Z"/>
+        <rect class="mast" x="28.5" y="97.4" width="15" height="2.6" rx="1.3"/>
+        <rect class="nac" x="33.2" y="26.6" width="7.6" height="6.8" rx="3.4"/>
+        <g class="rotor">
+          <use href="#bl-sm"/>
+          <use href="#bl-sm" transform="rotate(120 36 30)"/>
+          <use href="#bl-sm" transform="rotate(240 36 30)"/>
+        </g>
+        <circle class="hub" cx="36" cy="30" r="2.6"/>
+      </svg>
+      <span>
+        <span class="nm">Турбина 2</span>
+        <span class="val">—</span>
+        <span class="sub">—</span>
+      </span>
+    </div>
+    <p class="hint">Частота вращения пропорциональна <b>p<sup>1∕3</sup></b>: мощность ветра растёт как куб скорости,
+      поэтому кубический корень возвращает скорость вращения ротора. Показан <b id="rot-when">—</b>;
+      наведите курсор на график, чтобы увидеть конкретный час.</p>
+  </section>
 
   <!-- 3 и 4. График и панель агента -->
   <section class="grid-main">
@@ -684,6 +773,8 @@ footer .wrap { display: flex; gap: 16px; flex-wrap: wrap; justify-content: space
     tip.style.left = Math.max(4, Math.min(px + 14, rect.width - w - 4)) + "px";
     tip.style.top = "12px";
     tip.style.opacity = 1;
+
+    updateRotors(idx);
   }
   function row(color, name, v, strong) {
     if (v === null || v === undefined) return "";
@@ -695,6 +786,7 @@ footer .wrap { display: flex; gap: 16px; flex-wrap: wrap; justify-content: space
     var cur = $("svg-main").querySelector("#cursor");
     if (cur) cur.setAttribute("opacity", 0);
     $("tip-main").style.opacity = 0;
+    updateRotors();
   }
   function idxFromEvent(ev) {
     var rect = $("box-main").getBoundingClientRect(), g = mainGeo;
@@ -748,6 +840,38 @@ footer .wrap { display: flex; gap: 16px; flex-wrap: wrap; justify-content: space
   function tile(cls, icon, value, label) {
     return '<div class="kpi ' + cls + '"><span class="badge-ic">' + svgIc(icon, 20) + '</span>' +
       '<span><span class="v">' + value + '</span><span class="k">' + label + '</span></span></div>';
+  }
+
+  /* ================= роторы =================
+     Мощность ветрового потока растёт как куб скорости, поэтому обратное
+     преобразование p^(1/3) возвращает скорость вращения ротора. Период оборота
+     обратен скорости: T = T_ном / p^(1/3). Ниже порога трогания ротор стоит. */
+  var ROTOR_CUT_IN = 0.02;   // доля номинала, ниже которой ротор не вращается
+  var ROTOR_T_RATED = 0.75;  // секунд на оборот при номинальной мощности
+  function setRotor(id, p) {
+    var box = $(id), g = box.querySelector(".rotor");
+    var stopped = !(p > ROTOR_CUT_IN);
+    g.classList.toggle("stopped", stopped);
+    if (!stopped) {
+      var rel = Math.pow(Math.min(1, p), 1 / 3);
+      g.style.setProperty("--spin", (ROTOR_T_RATED / rel).toFixed(2) + "s");
+    }
+    box.querySelector(".val").textContent = stopped ? "штиль" : ru(p, 2);
+    box.querySelector(".sub").textContent = stopped ? "ротор остановлен"
+      : (state.mw ? ru(p * state.mw, 2) + " из " + ru(state.mw, 1) + " МВт" : "доля номинала");
+  }
+  function updateRotors(idx) {
+    var it = issue(), n = span(), p1, p2, i;
+    if (idx === undefined || idx === null || idx < 0 || idx >= n) {
+      p1 = 0; p2 = 0;
+      for (i = 0; i < n; i++) { p1 += it.t1[i]; p2 += it.t2[i]; }
+      p1 /= n; p2 /= n;
+      $("rot-when").textContent = "средний час выпуска";
+    } else {
+      p1 = it.t1[idx]; p2 = it.t2[idx];
+      $("rot-when").textContent = dayLong(it.ts[idx]) + ", " + hhmm(it.ts[idx]);
+    }
+    setRotor("tb1", p1); setRotor("tb2", p2);
   }
 
   /* ================= панель агента ================= */
@@ -1030,6 +1154,7 @@ footer .wrap { display: flex; gap: 16px; flex-wrap: wrap; justify-content: space
   function renderAll() {
     drawChips(); drawKpis(); drawMain(); drawAgent(); drawBid(); drawHours();
     hideCursor();
+    updateRotors();
   }
 
   /* ================= события ================= */
@@ -1048,6 +1173,11 @@ footer .wrap { display: flex; gap: 16px; flex-wrap: wrap; justify-content: space
   }
 
   function init() {
+    /* скрытая вкладка не тратит кадры на вращение роторов */
+    document.addEventListener("visibilitychange", function () {
+      document.body.classList.toggle("tab-hidden", document.hidden);
+    });
+
     var sel = $("issue");
     D.issues.forEach(function (it, k) {
       var o = document.createElement("option");

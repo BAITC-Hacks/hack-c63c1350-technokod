@@ -1,0 +1,682 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>WindAgent — прогноз выработки ВЭС</title>
+<meta name="description" content="Agentic AI для почасового прогнозирования выработки ветроэлектростанции на 24–48 часов. Команда Technokod, HackAlem AI 2026.">
+<style>
+  :root {
+    color-scheme: light;
+    --plane:          #f9f9f7;
+    --surface:        #fcfcfb;
+    --ink:            #0b0b0b;
+    --ink-2:          #52514e;
+    --ink-muted:      #898781;
+    --grid:           #e1e0d9;
+    --axis:           #c3c2b7;
+    --border:         rgba(11,11,11,0.10);
+    --s1:             #2a78d6;
+    --s2:             #eb6834;
+    --good:           #0ca30c;
+    --radius:         10px;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      color-scheme: dark;
+      --plane:        #0d0d0d;
+      --surface:      #1a1a19;
+      --ink:          #ffffff;
+      --ink-2:        #c3c2b7;
+      --ink-muted:    #898781;
+      --grid:         #2c2c2a;
+      --axis:         #383835;
+      --border:       rgba(255,255,255,0.10);
+      --s1:           #3987e5;
+      --s2:           #d95926;
+      --good:         #0ca30c;
+    }
+  }
+  :root[data-theme="dark"] {
+    color-scheme: dark;
+    --plane:        #0d0d0d;
+    --surface:      #1a1a19;
+    --ink:          #ffffff;
+    --ink-2:        #c3c2b7;
+    --ink-muted:    #898781;
+    --grid:         #2c2c2a;
+    --axis:         #383835;
+    --border:       rgba(255,255,255,0.10);
+    --s1:           #3987e5;
+    --s2:           #d95926;
+  }
+
+  * { box-sizing: border-box; }
+  html { -webkit-text-size-adjust: 100%; }
+  body {
+    margin: 0;
+    background: var(--plane);
+    color: var(--ink);
+    font: 16px/1.6 system-ui, -apple-system, "Segoe UI", sans-serif;
+  }
+  .wrap { max-width: 1060px; margin: 0 auto; padding: 32px 20px 72px; }
+
+  header.top { padding-bottom: 8px; }
+  .eyebrow { color: var(--ink-muted); font-size: 13px; letter-spacing: .04em; text-transform: uppercase; margin: 0 0 10px; }
+  h1 { font-size: clamp(26px, 4.4vw, 38px); line-height: 1.2; margin: 0 0 10px; letter-spacing: -0.01em; }
+  .lede { color: var(--ink-2); font-size: clamp(16px, 2.2vw, 18px); margin: 0 0 18px; max-width: 70ch; }
+  .chips { display: flex; flex-wrap: wrap; gap: 8px; margin: 0 0 14px; padding: 0; list-style: none; }
+  .chip {
+    border: 1px solid var(--border); border-radius: 999px; padding: 4px 12px;
+    font-size: 13px; color: var(--ink-2); background: var(--surface);
+  }
+  .links { display: flex; flex-wrap: wrap; gap: 14px; font-size: 14px; }
+  .links a { color: var(--s1); text-decoration: none; border-bottom: 1px solid transparent; }
+  .links a:hover, .links a:focus-visible { border-bottom-color: currentColor; }
+
+  section { margin-top: 44px; }
+  h2 { font-size: clamp(20px, 3vw, 24px); margin: 0 0 6px; letter-spacing: -0.01em; }
+  h3 { font-size: 16px; margin: 24px 0 8px; }
+  .sub { color: var(--ink-2); margin: 0 0 18px; max-width: 74ch; }
+  p { margin: 0 0 12px; }
+
+  .card {
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: var(--radius); padding: 18px;
+  }
+
+  /* фильтры: один ряд над графиком */
+  .filters { display: flex; flex-wrap: wrap; gap: 18px; align-items: center; margin-bottom: 14px; }
+  .filter-group { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+  .filter-label { font-size: 13px; color: var(--ink-muted); }
+  .seg { display: inline-flex; border: 1px solid var(--border); border-radius: 8px; overflow: hidden; background: var(--surface); }
+  .seg button {
+    appearance: none; border: 0; background: transparent; color: var(--ink-2);
+    font: inherit; font-size: 14px; padding: 6px 12px; cursor: pointer; white-space: nowrap;
+  }
+  .seg button + button { border-left: 1px solid var(--border); }
+  .seg button:hover { background: var(--grid); }
+  .seg button[aria-pressed="true"] { background: var(--ink); color: var(--surface); }
+  .seg button:focus-visible { outline: 2px solid var(--s1); outline-offset: -2px; }
+
+  /* график */
+  .chart-wrap { position: relative; }
+  .chart-scroll { overflow-x: auto; }
+  svg.chart { display: block; width: 100%; min-width: 520px; height: auto; touch-action: pan-y; }
+  svg.chart:focus-visible { outline: 2px solid var(--s1); outline-offset: 2px; }
+  .legend { display: flex; flex-wrap: wrap; gap: 16px; margin-top: 10px; font-size: 14px; color: var(--ink-2); }
+  .legend-item { display: inline-flex; align-items: center; gap: 7px; }
+  .key-line { width: 18px; height: 2px; border-radius: 2px; display: inline-block; }
+  .key-band { width: 18px; height: 10px; border-radius: 2px; display: inline-block; }
+  .tip {
+    position: absolute; pointer-events: none; opacity: 0; transition: opacity .1s;
+    background: var(--surface); border: 1px solid var(--border); border-radius: 8px;
+    padding: 8px 10px; font-size: 13px; color: var(--ink-2); min-width: 168px;
+    box-shadow: 0 4px 14px rgba(0,0,0,.12); z-index: 3;
+  }
+  .tip .tip-x { color: var(--ink-muted); margin-bottom: 6px; font-variant-numeric: tabular-nums; }
+  .tip-row { display: flex; align-items: center; gap: 8px; margin-top: 3px; }
+  .tip-val { color: var(--ink); font-weight: 600; font-variant-numeric: tabular-nums; min-width: 42px; }
+  .note { font-size: 13px; color: var(--ink-muted); margin-top: 10px; }
+
+  /* плитки показателей */
+  .tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 12px; margin-bottom: 18px; }
+  .tile { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 14px 16px; }
+  .tile .t-label { font-size: 13px; color: var(--ink-muted); margin-bottom: 6px; }
+  .tile .t-value { font-size: 28px; font-weight: 600; letter-spacing: -0.02em; line-height: 1.1; }
+  .tile .t-hint { font-size: 12px; color: var(--ink-muted); margin-top: 4px; }
+
+  .table-scroll { overflow-x: auto; }
+  table { border-collapse: collapse; width: 100%; font-size: 14px; }
+  th, td { text-align: right; padding: 8px 10px; border-bottom: 1px solid var(--border); white-space: nowrap; font-variant-numeric: tabular-nums; }
+  th:first-child, td:first-child { text-align: left; font-variant-numeric: normal; }
+  thead th { color: var(--ink-muted); font-weight: 500; font-size: 13px; }
+  tbody tr:last-child td { border-bottom: 0; }
+  td.lead { font-weight: 600; }
+
+  details { margin-top: 14px; }
+  details > summary {
+    cursor: pointer; font-size: 14px; color: var(--s1); list-style: none;
+    padding: 4px 0; width: fit-content;
+  }
+  details > summary::-webkit-details-marker { display: none; }
+  details > summary::before { content: "▸ "; }
+  details[open] > summary::before { content: "▾ "; }
+
+  /* трасса агента */
+  ol.trace { list-style: none; counter-reset: step; margin: 0; padding: 0; }
+  ol.trace li {
+    counter-increment: step; position: relative; padding: 0 0 18px 42px; border-left: 1px solid var(--grid);
+    margin-left: 13px;
+  }
+  ol.trace li:last-child { border-left-color: transparent; padding-bottom: 0; }
+  ol.trace li::before {
+    content: counter(step); position: absolute; left: -13px; top: 0;
+    width: 26px; height: 26px; border-radius: 50%; display: grid; place-items: center;
+    background: var(--surface); border: 1px solid var(--border);
+    font-size: 13px; color: var(--ink-2); font-variant-numeric: tabular-nums;
+  }
+  ol.trace li.hot::before { background: var(--s1); border-color: var(--s1); color: #fff; }
+  .tool { font-family: ui-monospace, "SF Mono", Consolas, monospace; font-size: 14px; color: var(--ink); }
+  .trace-body { font-size: 14px; color: var(--ink-2); margin-top: 3px; }
+  .quote {
+    border-left: 2px solid var(--s1); padding: 2px 0 2px 14px; margin: 14px 0 0;
+    color: var(--ink-2); font-size: 15px;
+  }
+  .tools-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 10px; margin-bottom: 20px; }
+  .tool-card { border: 1px solid var(--border); border-radius: 8px; padding: 10px 12px; background: var(--surface); }
+  .tool-card .tool { display: block; margin-bottom: 2px; }
+  .tool-card span.d { font-size: 13px; color: var(--ink-2); }
+
+  ul.plain { margin: 0 0 12px; padding-left: 20px; color: var(--ink-2); }
+  ul.plain li { margin-bottom: 6px; }
+  .callout {
+    border: 1px solid var(--border); border-left: 3px solid var(--ink-muted);
+    border-radius: 8px; padding: 12px 14px; background: var(--surface);
+    font-size: 14px; color: var(--ink-2);
+  }
+  footer { margin-top: 56px; padding-top: 20px; border-top: 1px solid var(--border); font-size: 13px; color: var(--ink-muted); }
+  code { font-family: ui-monospace, "SF Mono", Consolas, monospace; font-size: 0.92em; }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header class="top">
+    <p class="eyebrow">HackAlem AI 2026 · трек «Энергетика» · кейс Самрук-Казына</p>
+    <h1>WindAgent — Agentic AI для прогнозирования выработки ВЭС</h1>
+    <p class="lede">Почасовой прогноз выработки двух турбин ветроэлектростанции на 24–48 часов вперёд. Команда Technokod.</p>
+    <ul class="chips">
+      <li class="chip">Горизонт 24–48 ч, шаг 1 час</li>
+      <li class="chip">Тест: февраль 2026, 28 выпусков</li>
+      <li class="chip">nMAE 14.31 % на сутки</li>
+      <li class="chip">Оркестрация через function calling</li>
+    </ul>
+    <nav class="links">
+      <a href="https://github.com/BAITC-Hacks/hack-c63c1350-technokod">Репозиторий</a>
+      <a href="https://github.com/BAITC-Hacks/hack-c63c1350-technokod#readme">README</a>
+      <a href="https://github.com/BAITC-Hacks/hack-c63c1350-technokod/blob/main/docs/architecture.md">Архитектура</a>
+      <a href="https://github.com/BAITC-Hacks/hack-c63c1350-technokod/blob/main/docs/agent-design.md">Устройство агента</a>
+      <a href="https://github.com/BAITC-Hacks/hack-c63c1350-technokod/blob/main/docs/validation.md">Протокол валидации</a>
+    </nav>
+  </header>
+
+  <section id="task">
+    <h2>Задача и решение</h2>
+    <p class="sub">Две турбины стоят в 400 метрах друг от друга в Шелекском ветровом коридоре Алматинской области. Требуется почасовой прогноз их выработки на 24–48 часов вперёд для суточной заявки на рынок и планирования резервов.</p>
+    <p>Ключевое требование кейса: для каждой даты выпуска разрешено использовать только тот прогноз погоды, который был доступен именно на этот момент, а не фактические значения, ставшие известными позже. Решение берёт архивные выпуски прогноза Open-Meteo Previous Runs: часы 1–24 горизонта из прогноза, выпущенного за сутки, часы 25–48 — из выпущенного за двое суток.</p>
+    <p>Агент проходит полный цикл на каждую дату: получает прогноз погоды, готовит признаки, запускает модель выработки, анализирует результат, сравнивает его с предыдущим выпуском и пересчитывает прогноз, если входные данные обновились. Порядок вызова инструментов выбирает языковая модель через function calling; без ключа провайдера тот же цикл выполняет детерминированный планировщик, поэтому числовой результат не зависит от доступности внешнего сервиса.</p>
+  </section>
+
+  <section id="forecast">
+    <h2>Прогноз на февраль 2026</h2>
+    <p class="sub">Результат 28 последовательных выпусков: на каждый час февраля взят самый свежий доступный прогноз. Значения — нормированная мощность, доля от номинала турбины.</p>
+
+    <div class="filters" role="group" aria-label="Параметры отображения графика">
+      <div class="filter-group">
+        <span class="filter-label" id="lbl-horizon">Горизонт</span>
+        <div class="seg" role="group" aria-labelledby="lbl-horizon" id="seg-lead">
+          <button type="button" data-lead="1" aria-pressed="true">Прогноз на сутки</button>
+          <button type="button" data-lead="2" aria-pressed="false">На двое суток</button>
+        </div>
+      </div>
+      <div class="filter-group">
+        <span class="filter-label" id="lbl-period">Период</span>
+        <div class="seg" role="group" aria-labelledby="lbl-period" id="seg-range">
+          <button type="button" data-from="0" data-to="672" aria-pressed="true">Весь февраль</button>
+          <button type="button" data-from="0" data-to="168" aria-pressed="false">1–7</button>
+          <button type="button" data-from="168" data-to="336" aria-pressed="false">8–14</button>
+          <button type="button" data-from="336" data-to="504" aria-pressed="false">15–21</button>
+          <button type="button" data-from="504" data-to="672" aria-pressed="false">22–28</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="chart-wrap">
+        <div class="chart-scroll">
+          <svg class="chart" id="chart" viewBox="0 0 960 380" role="img" tabindex="0"
+               aria-label="Почасовой прогноз выработки двух турбин за февраль 2026"></svg>
+        </div>
+        <div class="tip" id="tip" role="status" aria-live="polite"></div>
+      </div>
+      <div class="legend">
+        <span class="legend-item"><span class="key-line" style="background: var(--s1)"></span> Турбина 1</span>
+        <span class="legend-item"><span class="key-line" style="background: var(--s2)"></span> Турбина 2</span>
+        <span class="legend-item" id="band-key"><span class="key-band" style="background: var(--s1); opacity: .18"></span> Интервал P10–P90, турбина 1</span>
+      </div>
+      <p class="note" id="chart-note"></p>
+
+      <details>
+        <summary>Показать таблицу по суткам</summary>
+        <div class="table-scroll">
+          <table id="daily-table">
+            <thead>
+              <tr><th>Сутки</th><th>Средняя Т1</th><th>Средняя Т2</th><th>Максимум Т1</th><th>Минимум Т1</th><th>Выработка Т1, норм·ч</th></tr>
+            </thead>
+            <tbody></tbody>
+          </table>
+        </div>
+        <p class="note">Полный почасовой ряд — в файле <a href="https://github.com/BAITC-Hacks/hack-c63c1350-technokod/blob/main/outputs/forecast_feb2026.csv"><code>outputs/forecast_feb2026.csv</code></a> репозитория: 672 строки, по строке на каждый час февраля.</p>
+      </details>
+    </div>
+  </section>
+
+  <section id="metrics">
+    <h2>Точность на честной валидации</h2>
+    <p class="sub">Модель обучена на данных до 31 декабря 2025 года и проверена на январе 2026: 30 последовательных выпусков по 48 часов, каждый — по прогнозу погоды, доступному накануне. Факт погоды не использовался ни в обучении, ни в проверке.</p>
+
+    <div class="tiles">
+      <div class="tile">
+        <div class="t-label">nMAE, горизонт 24 ч</div>
+        <div class="t-value">14.31 %</div>
+        <div class="t-hint">турбина 1; турбина 2 — 14.55 %</div>
+      </div>
+      <div class="tile">
+        <div class="t-label">nMAE, горизонт 48 ч</div>
+        <div class="t-value">16.33 %</div>
+        <div class="t-hint">турбина 1; турбина 2 — 16.66 %</div>
+      </div>
+      <div class="tile">
+        <div class="t-label">Покрытие P10–P90</div>
+        <div class="t-value">79.4 %</div>
+        <div class="t-hint">на сутки; на двое суток — 79.7 %</div>
+      </div>
+      <div class="tile">
+        <div class="t-label">Лучше персистентности</div>
+        <div class="t-value" style="color: var(--good)">на 58–60 %</div>
+        <div class="t-hint">по MAE, горизонт 24 ч</div>
+      </div>
+    </div>
+
+    <h3>Ошибка по турбинам и горизонтам</h3>
+    <div class="table-scroll">
+      <table>
+        <thead>
+          <tr><th>Турбина</th><th>Горизонт</th><th>MAE</th><th>RMSE</th><th>nMAE</th></tr>
+        </thead>
+        <tbody>
+          <tr><td>Турбина 1</td><td>24 ч</td><td>0.1431</td><td>0.2015</td><td>14.31 %</td></tr>
+          <tr><td>Турбина 1</td><td>48 ч</td><td>0.1633</td><td>0.2296</td><td>16.33 %</td></tr>
+          <tr><td>Турбина 2</td><td>24 ч</td><td>0.1455</td><td>0.2041</td><td>14.55 %</td></tr>
+          <tr><td>Турбина 2</td><td>48 ч</td><td>0.1666</td><td>0.2316</td><td>16.66 %</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <h3>Сравнение с эталонами</h3>
+    <p class="sub">MAE на январе 2026, горизонт 24 часа. Чем меньше, тем лучше.</p>
+    <div class="table-scroll">
+      <table>
+        <thead>
+          <tr><th>Метод</th><th>Турбина 1</th><th>Турбина 2</th></tr>
+        </thead>
+        <tbody>
+          <tr><td class="lead">Модель WindAgent</td><td class="lead">0.1431</td><td class="lead">0.1455</td></tr>
+          <tr><td>Климатология по часу суток</td><td>0.3003</td><td>0.3007</td></tr>
+          <tr><td>Константа — среднее по истории</td><td>0.3010</td><td>0.3017</td></tr>
+          <tr><td>Персистентность</td><td>0.3568</td><td>0.3463</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p class="note">Модель точнее персистентности на 58–60 % и климатологии на 52 %.</p>
+  </section>
+
+  <section id="agent">
+    <h2>Как работает агент</h2>
+    <p class="sub">Пять инструментов, между которыми агент выбирает сам. Каждый выпуск сохраняет журнал с полной трассой вызовов — по нему любое решение агента можно разобрать постфактум.</p>
+
+    <div class="tools-grid">
+      <div class="tool-card"><span class="tool">get_weather</span><span class="d">Архивный прогноз погоды, доступный на дату выпуска</span></div>
+      <div class="tool-card"><span class="tool">prepare_and_predict</span><span class="d">Признаки и расчёт выработки по обеим турбинам</span></div>
+      <div class="tool-card"><span class="tool">analyze</span><span class="d">Штиль, номинал, шторм, расхождение с прошлым выпуском</span></div>
+      <div class="tool-card"><span class="tool">recalculate</span><span class="d">Повторный расчёт и буревая защита турбины</span></div>
+      <div class="tool-card"><span class="tool">save_forecast</span><span class="d">Запись выпуска и журнала действий</span></div>
+    </div>
+
+    <h3>Реальная трасса выпуска от 15 февраля 2026</h3>
+    <p class="sub">Журнал <code>outputs/agent_logs_llm/2026-02-15.json</code>, режим с живой оркестрацией: порядок инструментов выбрала модель.</p>
+    <div class="card">
+      <ol class="trace">
+        <li>
+          <span class="tool">get_weather</span>
+          <div class="trace-body">48 часов прогноза на 16–17 февраля: 24 часа из выпуска за сутки, 24 из выпуска за двое суток. Ветер на 100 м от 3.4 до 7.7 м/с при среднем 5.9, температура от 0.4 до 9.6 °C.</div>
+        </li>
+        <li>
+          <span class="tool">prepare_and_predict</span>
+          <div class="trace-body">96 строк — 48 часов на каждую из двух турбин. Средний коэффициент использования 0.379 и 0.370, ожидаемая выработка 18.2 и 17.7 норм·ч.</div>
+        </li>
+        <li class="hot">
+          <span class="tool">analyze</span>
+          <div class="trace-body">Штилевых, номинальных и штормовых часов нет. Расхождение с выпуском предыдущего дня на пересекающихся 24 часах: <strong>0.164 в среднем</strong> при пороге пересчёта 0.15, максимум 0.441 → <code>needs_recalculation: true</code>.</div>
+        </li>
+        <li>
+          <span class="tool">prepare_and_predict</span>
+          <div class="trace-body">Модель самостоятельно пересчитала прогноз на обновлённых данных перед вызовом пересчёта.</div>
+        </li>
+        <li class="hot">
+          <span class="tool">recalculate</span>
+          <div class="trace-body">Причина в журнале: <code>input_change_vs_previous_issue=0.164 exceeds update_threshold=0.15</code>. Источник прогноза опрошен заново, буревая защита не сработала — штормовых часов нет, обнулённых строк 0.</div>
+        </li>
+        <li>
+          <span class="tool">save_forecast</span>
+          <div class="trace-body">Выпуск сохранён: <code>outputs/forecasts/2026-02-15.csv</code>, 96 строк.</div>
+        </li>
+      </ol>
+      <blockquote class="quote">«Прогноз выпущен на 48 часов для турбин 1 и 2. Ожидаемая выработка: турбина 1 — 18.2 нормо-часа, турбина 2 — 17.7 нормо-часа; средний коэффициент использования — 0.379 и 0.370 соответственно. Рисков штиля и шторма по анализу не выявлено, номинальных часов тоже нет. Относительно прошлого выпуска входные данные заметно изменились, поэтому потребовался пересчёт; после пересчёта буревая защита не сработала.»</blockquote>
+      <p class="note">Заключение записано языковой моделью и сохранено в журнале выпуска дословно.</p>
+    </div>
+    <p class="note">За весь тестовый период агент выполнил пересчёт в четырёх выпусках из 28: 6, 15, 21 и 24 февраля.</p>
+  </section>
+
+  <section id="verify">
+    <h2>Проверяемость</h2>
+    <p class="sub">Решение проверяется на чужой машине без сети и без ключей: кэш архивных прогнозов погоды лежит в репозитории.</p>
+    <ul class="plain">
+      <li>Контрольный сценарий одной командой: <code>bash scripts/demo.sh</code> или <code>powershell scripts/demo.ps1</code>. На обученных моделях проходит за 20 секунд, на свежем клоне — около 4 минут вместе с обучением.</li>
+      <li>Шесть автотестов: часовая агрегация, сборка признаков, честность источника прогноза, выпуск агента, отбраковка неверной даты.</li>
+      <li>Сценарий останавливается на первой ошибке и возвращает ненулевой код, поэтому «зелёный» прогон нельзя получить на сломанном коде.</li>
+      <li>Живая оркестрация языковой моделью — необязательный седьмой шаг: при заданном ключе выполняется, без ключа пропускается с явным сообщением.</li>
+    </ul>
+    <div class="callout">
+      Развёрнутого промышленного сервиса у решения нет, и эта страница им не является: она показывает результат работы агента на тестовом периоде. Исполняемое решение запускается из репозитория — интерфейс командной строки и HTTP-сервис на FastAPI описаны в README.
+    </div>
+  </section>
+
+  <footer>
+    Команда Technokod · HackAlem AI 2026 · кейс «Agentic AI для прогнозирования выработки ВЭС», Самрук-Казына.
+    Источник погоды — Open-Meteo Previous Runs API. Данные выработки предоставлены организатором.
+  </footer>
+</div>
+
+<script src="demo/forecast-feb2026.js"></script>
+<script>
+(function () {
+  "use strict";
+  var D = window.FEB_DATA;
+  var svg = document.getElementById("chart");
+  var tip = document.getElementById("tip");
+  var note = document.getElementById("chart-note");
+  var bandKey = document.getElementById("band-key");
+  var tbody = document.querySelector("#daily-table tbody");
+  var NS = "http://www.w3.org/2000/svg";
+
+  var W = 960, H = 380, ML = 52, MR = 18, MT = 14, MB = 44;
+  var PW = W - ML - MR, PH = H - MT - MB;
+
+  var state = { lead: 1, from: 0, to: D.hours, cursor: null };
+  var start = new Date(D.start);
+
+  function at(i) { return new Date(start.getTime() + i * 3600000); }
+  function p2(n) { return n < 10 ? "0" + n : "" + n; }
+  function dayLabel(d) { return p2(d.getDate()) + "." + p2(d.getMonth() + 1); }
+  function fullLabel(d) { return p2(d.getDate()) + "." + p2(d.getMonth() + 1) + ", " + p2(d.getHours()) + ":00"; }
+  function fmt(v) { return v === null || v === undefined ? "—" : v.toFixed(3); }
+
+  function series() {
+    // интервал рисуем только на недельном масштабе: на 672 часах полоса сливается в заливку
+    var weekly = (state.to - state.from) <= 168;
+    return state.lead === 1
+      ? { a: D.t1l1, b: D.t2l1, band: weekly }
+      : { a: D.t1l2, b: D.t2l2, band: false };
+  }
+  function xAt(i) { var n = state.to - state.from; return ML + (n === 1 ? 0 : (i - state.from) * PW / (n - 1)); }
+  function yAt(v) { return MT + (1 - v) * PH; }
+
+  function el(name, attrs, text) {
+    var e = document.createElementNS(NS, name);
+    for (var k in attrs) if (attrs[k] !== null) e.setAttribute(k, attrs[k]);
+    if (text !== undefined) e.textContent = text;
+    return e;
+  }
+
+  function linePath(arr) {
+    var d = "", pen = false;
+    for (var i = state.from; i < state.to; i++) {
+      var v = arr[i];
+      if (v === null || v === undefined) { pen = false; continue; }
+      d += (pen ? "L" : "M") + xAt(i).toFixed(1) + " " + yAt(v).toFixed(1) + " ";
+      pen = true;
+    }
+    return d.trim();
+  }
+
+  function bandPath(lo, hi) {
+    var up = "", down = [];
+    for (var i = state.from; i < state.to; i++) {
+      if (lo[i] === null || hi[i] === null) continue;
+      up += (up ? "L" : "M") + xAt(i).toFixed(1) + " " + yAt(hi[i]).toFixed(1) + " ";
+      down.push(xAt(i).toFixed(1) + " " + yAt(lo[i]).toFixed(1));
+    }
+    if (!up) return "";
+    down.reverse();
+    return up + "L" + down.join("L") + " Z";
+  }
+
+  function ticksX() {
+    var n = state.to - state.from, out = [];
+    var stepH = n <= 180 ? 24 : 48;
+    for (var i = state.from; i < state.to; i++) {
+      var d = at(i);
+      if (d.getHours() === 0 && ((i - state.from) % stepH === 0)) out.push({ i: i, label: dayLabel(d) });
+    }
+    return out;
+  }
+
+  function render() {
+    while (svg.firstChild) svg.removeChild(svg.firstChild);
+    var s = series();
+
+    // горизонтальная сетка и подписи оси Y
+    [0, 0.25, 0.5, 0.75, 1].forEach(function (v) {
+      svg.appendChild(el("line", { x1: ML, x2: W - MR, y1: yAt(v), y2: yAt(v),
+        stroke: v === 0 ? "var(--axis)" : "var(--grid)", "stroke-width": 1 }));
+      svg.appendChild(el("text", { x: ML - 10, y: yAt(v) + 4, "text-anchor": "end",
+        fill: "var(--ink-muted)", "font-size": 12, "font-variant-numeric": "tabular-nums" }, v.toFixed(2)));
+    });
+
+    // подписи оси X
+    ticksX().forEach(function (t) {
+      svg.appendChild(el("line", { x1: xAt(t.i), x2: xAt(t.i), y1: yAt(0), y2: yAt(0) + 5,
+        stroke: "var(--axis)", "stroke-width": 1 }));
+      svg.appendChild(el("text", { x: xAt(t.i), y: yAt(0) + 20, "text-anchor": "middle",
+        fill: "var(--ink-muted)", "font-size": 12, "font-variant-numeric": "tabular-nums" }, t.label));
+    });
+    svg.appendChild(el("text", { x: ML, y: H - 8, fill: "var(--ink-muted)", "font-size": 11 }, "февраль 2026, местное время"));
+
+    // интервал неопределённости
+    if (s.band) {
+      var bp = bandPath(D.t1p10, D.t1p90);
+      if (bp) svg.appendChild(el("path", { d: bp, fill: "var(--s1)", "fill-opacity": 0.14, stroke: "none" }));
+    }
+
+    // линии серий
+    svg.appendChild(el("path", { d: linePath(s.b), fill: "none", stroke: "var(--s2)",
+      "stroke-width": 2, "stroke-linejoin": "round", "stroke-linecap": "round" }));
+    svg.appendChild(el("path", { d: linePath(s.a), fill: "none", stroke: "var(--s1)",
+      "stroke-width": 2, "stroke-linejoin": "round", "stroke-linecap": "round" }));
+
+    // прямая подпись одного экстремума: пик турбины 1 на выбранном отрезке
+    var peak = -1, peakI = -1;
+    for (var i = state.from; i < state.to; i++) {
+      var v = s.a[i];
+      if (v !== null && v !== undefined && v > peak) { peak = v; peakI = i; }
+    }
+    if (peakI >= 0) {
+      var px = xAt(peakI), py = yAt(peak);
+      svg.appendChild(el("circle", { cx: px, cy: py, r: 4, fill: "var(--s1)",
+        stroke: "var(--surface)", "stroke-width": 2 }));
+      var anchor = px > W - 200 ? "end" : "start";
+      var dx = anchor === "end" ? -10 : 10;
+      svg.appendChild(el("text", { x: px + dx, y: py - 10, "text-anchor": anchor,
+        fill: "var(--ink-2)", "font-size": 12 }, "пик " + peak.toFixed(2) + " · " + fullLabel(at(peakI))));
+    }
+
+    // слой наведения
+    var cross = el("line", { id: "cross", x1: 0, x2: 0, y1: MT, y2: yAt(0),
+      stroke: "var(--axis)", "stroke-width": 1, opacity: 0 });
+    svg.appendChild(cross);
+    var d1 = el("circle", { id: "d1", r: 4.5, fill: "var(--s1)", stroke: "var(--surface)", "stroke-width": 2, opacity: 0 });
+    var d2 = el("circle", { id: "d2", r: 4.5, fill: "var(--s2)", stroke: "var(--surface)", "stroke-width": 2, opacity: 0 });
+    svg.appendChild(d2); svg.appendChild(d1);
+    var hit = el("rect", { x: ML, y: MT, width: PW, height: PH, fill: "transparent", style: "cursor: crosshair" });
+    svg.appendChild(hit);
+
+    hit.addEventListener("pointermove", onMove);
+    hit.addEventListener("pointerdown", onMove);
+    hit.addEventListener("pointerleave", hideCursor);
+
+    note.textContent = state.lead === 1
+      ? (s.band
+          ? "Показан прогноз, выпущенный за сутки до каждого часа, с интервалом неопределённости P10–P90 по турбине 1."
+          : "Показан прогноз, выпущенный за сутки до каждого часа. Интервал P10–P90 на масштабе месяца сливается в сплошную полосу, поэтому он показывается при выборе отдельной недели.")
+      : "Показан прогноз, выпущенный за двое суток. За 1 февраля его не существует: он потребовал бы выпуск от 30 января, поэтому линия начинается со 2 февраля. Интервал P10–P90 рассчитан для суточного горизонта и здесь не показан.";
+    bandKey.style.display = s.band ? "" : "none";
+
+    if (state.cursor !== null) showCursor(state.cursor);
+    renderTable();
+  }
+
+  function idxFromEvent(ev) {
+    var box = svg.getBoundingClientRect();
+    var x = (ev.clientX - box.left) * (W / box.width);
+    var n = state.to - state.from;
+    var rel = (x - ML) / PW * (n - 1);
+    var i = Math.round(rel) + state.from;
+    return Math.max(state.from, Math.min(state.to - 1, i));
+  }
+
+  function onMove(ev) { showCursor(idxFromEvent(ev)); }
+
+  function showCursor(i) {
+    state.cursor = i;
+    var s = series();
+    var cross = svg.querySelector("#cross"), d1 = svg.querySelector("#d1"), d2 = svg.querySelector("#d2");
+    if (!cross) return;
+    var x = xAt(i);
+    cross.setAttribute("x1", x); cross.setAttribute("x2", x); cross.setAttribute("opacity", 1);
+    var va = s.a[i], vb = s.b[i];
+    if (va !== null && va !== undefined) { d1.setAttribute("cx", x); d1.setAttribute("cy", yAt(va)); d1.setAttribute("opacity", 1); }
+    else d1.setAttribute("opacity", 0);
+    if (vb !== null && vb !== undefined) { d2.setAttribute("cx", x); d2.setAttribute("cy", yAt(vb)); d2.setAttribute("opacity", 1); }
+    else d2.setAttribute("opacity", 0);
+
+    while (tip.firstChild) tip.removeChild(tip.firstChild);
+    var head = document.createElement("div");
+    head.className = "tip-x";
+    head.textContent = fullLabel(at(i));
+    tip.appendChild(head);
+    addTipRow(va, "var(--s1)", "Турбина 1");
+    addTipRow(vb, "var(--s2)", "Турбина 2");
+    if (state.lead === 1 && D.t1p10[i] !== null) {
+      var band = document.createElement("div");
+      band.className = "tip-x";
+      band.style.marginTop = "6px";
+      band.style.marginBottom = "0";
+      band.textContent = "P10–P90 Т1: " + fmt(D.t1p10[i]) + " … " + fmt(D.t1p90[i]);
+      tip.appendChild(band);
+    }
+
+    var box = svg.getBoundingClientRect();
+    var scale = box.width / W;
+    var left = x * scale + 14;
+    if (left > box.width - 190) left = x * scale - 190;
+    tip.style.left = Math.max(0, left) + "px";
+    tip.style.top = "12px";
+    tip.style.opacity = 1;
+  }
+
+  function addTipRow(v, color, name) {
+    var row = document.createElement("div");
+    row.className = "tip-row";
+    var key = document.createElement("span");
+    key.className = "key-line";
+    key.style.background = color;
+    var val = document.createElement("span");
+    val.className = "tip-val";
+    val.textContent = fmt(v);
+    var lab = document.createElement("span");
+    lab.textContent = name;
+    row.appendChild(key); row.appendChild(val); row.appendChild(lab);
+    tip.appendChild(row);
+  }
+
+  function hideCursor() {
+    state.cursor = null;
+    tip.style.opacity = 0;
+    var cross = svg.querySelector("#cross");
+    if (cross) cross.setAttribute("opacity", 0);
+    ["#d1", "#d2"].forEach(function (id) {
+      var e = svg.querySelector(id);
+      if (e) e.setAttribute("opacity", 0);
+    });
+  }
+
+  function renderTable() {
+    while (tbody.firstChild) tbody.removeChild(tbody.firstChild);
+    var s = series();
+    var days = {};
+    for (var i = state.from; i < state.to; i++) {
+      var key = dayLabel(at(i));
+      if (!days[key]) days[key] = { a: [], b: [] };
+      if (s.a[i] !== null && s.a[i] !== undefined) days[key].a.push(s.a[i]);
+      if (s.b[i] !== null && s.b[i] !== undefined) days[key].b.push(s.b[i]);
+    }
+    Object.keys(days).forEach(function (key) {
+      var d = days[key];
+      if (!d.a.length) return;
+      var mean = function (x) { return x.reduce(function (p, c) { return p + c; }, 0) / x.length; };
+      var sum = function (x) { return x.reduce(function (p, c) { return p + c; }, 0); };
+      var cells = [key, mean(d.a).toFixed(3), d.b.length ? mean(d.b).toFixed(3) : "—",
+                   Math.max.apply(null, d.a).toFixed(3), Math.min.apply(null, d.a).toFixed(3),
+                   sum(d.a).toFixed(1)];
+      var tr = document.createElement("tr");
+      cells.forEach(function (c) {
+        var td = document.createElement("td");
+        td.textContent = c;
+        tr.appendChild(td);
+      });
+      tbody.appendChild(tr);
+    });
+  }
+
+  // переключатели
+  function bindSeg(id, apply) {
+    var box = document.getElementById(id);
+    box.addEventListener("click", function (ev) {
+      var btn = ev.target.closest("button");
+      if (!btn) return;
+      Array.prototype.forEach.call(box.querySelectorAll("button"), function (b) {
+        b.setAttribute("aria-pressed", String(b === btn));
+      });
+      apply(btn);
+      state.cursor = null;
+      tip.style.opacity = 0;
+      render();
+    });
+  }
+  bindSeg("seg-lead", function (btn) { state.lead = Number(btn.dataset.lead); });
+  bindSeg("seg-range", function (btn) {
+    state.from = Number(btn.dataset.from);
+    state.to = Number(btn.dataset.to);
+  });
+
+  // клавиатура: те же значения, что и по наведению
+  svg.addEventListener("keydown", function (ev) {
+    var i = state.cursor === null ? state.from : state.cursor;
+    if (ev.key === "ArrowRight") i = Math.min(state.to - 1, i + 1);
+    else if (ev.key === "ArrowLeft") i = Math.max(state.from, i - 1);
+    else if (ev.key === "Home") i = state.from;
+    else if (ev.key === "End") i = state.to - 1;
+    else if (ev.key === "Escape") { hideCursor(); return; }
+    else return;
+    ev.preventDefault();
+    showCursor(i);
+  });
+  svg.addEventListener("blur", hideCursor);
+
+  render();
+})();
+</script>
+</body>
+</html>

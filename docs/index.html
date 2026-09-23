@@ -314,14 +314,26 @@ svg.chart { display: block; width: 100%; height: auto; touch-action: pan-y; }
 .tip .sw { width: 12px; height: 2px; display: inline-block; flex: none; }
 
 /* ---------- панель агента ---------- */
-.agent-head { display: flex; align-items: center; gap: 11px; padding: 15px 18px 0; }
+.agent-head { display: flex; align-items: flex-start; gap: 11px; padding: 15px 18px 0; }
 .agent-head .ok-round {
   width: 34px; height: 34px; border-radius: 50%; background: var(--ok-bg); color: var(--ok-ic);
   display: grid; place-items: center; flex: none;
 }
 .agent-head .t { min-width: 0; }
-.agent-head .when { margin-left: auto; font-size: 12px; color: var(--text-muted); font-variant-numeric: tabular-nums; white-space: nowrap; }
-.steps { list-style: none; margin: 12px 0 14px; padding: 0 18px; position: relative; }
+.agent-head h2 { white-space: nowrap; }
+.agent-head .meta {
+  display: flex; flex-wrap: wrap; align-items: center; gap: 4px 8px; margin-top: 3px;
+  font-size: 12px; color: var(--text-muted); font-variant-numeric: tabular-nums;
+}
+/* трасса инструментов — для проверки, поэтому свёрнута */
+.trace { border-top: 1px solid var(--border); margin: 0 18px 14px; }
+.trace summary {
+  cursor: pointer; padding: 10px 0 0; font-size: 12.5px; font-weight: 600; color: var(--text-secondary);
+  list-style-position: outside;
+}
+.trace summary:hover { color: var(--brand-600); }
+.trace[open] summary { margin-bottom: 2px; }
+.steps { list-style: none; margin: 4px 0 6px; padding: 0; position: relative; }
 .steps li { display: flex; gap: 11px; align-items: flex-start; padding: 6px 0; }
 .steps .mark {
   width: 22px; height: 22px; border-radius: 50%; flex: none; display: grid; place-items: center;
@@ -333,6 +345,7 @@ svg.chart { display: block; width: 100%; height: auto; touch-action: pan-y; }
 .steps .dt { font-size: 12px; line-height: 17px; color: var(--text-muted); }
 .steps .body { min-width: 0; flex: 1; }
 .steps .right { font-size: 12px; color: var(--text-muted); text-align: right; white-space: nowrap; margin-left: auto; padding-left: 8px; }
+.steps .tool { font-size: 11px; color: var(--text-muted); font-weight: 500; }
 
 .flags { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; padding: 0 18px 14px; }
 .flag { border: 1px solid var(--border); border-radius: 10px; padding: 9px 8px; text-align: center; }
@@ -351,13 +364,17 @@ svg.chart { display: block; width: 100%; height: auto; touch-action: pan-y; }
 .banner.red .bi, .banner.red b { color: var(--fail); }
 .banner.green { background: var(--ok-bg); border: 1px solid var(--ok-br); color: var(--text-2); }
 .banner.green .bi, .banner.green b { color: var(--ok); }
-.outcome {
-  margin: 0 18px 16px; border-radius: 10px; padding: 12px 14px; background: var(--brand-50);
-  border: 1px solid var(--brand-100); display: flex; gap: 10px; align-items: flex-start;
+/* штатное завершённое действие — информируем, а не тревожим */
+.banner.info { background: var(--brand-50); border: 1px solid var(--brand-100); color: var(--text-2); }
+.banner.info .bi, .banner.info b { color: var(--brand-700); }
+:root[data-theme="dark"] .banner.info .bi, :root[data-theme="dark"] .banner.info b { color: var(--brand-300); }
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) .banner.info .bi, :root:not([data-theme="light"]) .banner.info b { color: var(--brand-300); }
 }
-.outcome .bi { color: var(--brand-600); flex: none; margin-top: 1px; }
-.outcome b { display: block; font-size: 13.5px; color: var(--brand-700); margin-bottom: 3px; }
-.outcome p { margin: 0; font-size: 12.5px; line-height: 19px; color: var(--text-2); }
+.banner.amber { background: var(--warn-bg, #FDF4E3); border: 1px solid var(--warn-br, #F0D9A8); color: var(--text-2); }
+.banner.amber .bi, .banner.amber b { color: var(--warn-fg, #8A5A00); }
+.outcome { margin: 12px 18px 14px; }
+.outcome p { margin: 0; font-size: 14.5px; line-height: 22px; color: var(--text); }
 :root[data-theme="dark"] .outcome b { color: var(--brand-300); }
 @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .outcome b { color: var(--brand-300); } }
 .badge {
@@ -664,18 +681,18 @@ footer .wrap { display: flex; gap: 16px; flex-wrap: wrap; justify-content: space
         <span class="ok-round" id="agent-icon">
           <svg class="ic" width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>
         </span>
-        <span class="t"><h2 id="agent-title" data-hint="&lt;b&gt;Журнал действий агента по этому выпуску:&lt;/b&gt; какие инструменты вызваны и в каком порядке. Пометка под заголовком говорит, выбрала ли порядок LLM или детерминированный планировщик.">Агент выполнил прогноз</h2><span class="sub" id="agent-mode"></span></span>
-        <span class="when" id="agent-when"></span>
-      </div>
-      <ol class="steps" id="steps"></ol>
-      <div class="flags" id="flags"></div>
-      <div id="banner"></div>
-      <div class="outcome">
-        <span class="bi">
-          <svg class="ic" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M9 18h6M10 21.5h4M12 2.5a6.5 6.5 0 0 0-3.8 11.8c.5.4.8 1 .8 1.7h6c0-.7.3-1.3.8-1.7A6.5 6.5 0 0 0 12 2.5z"/></svg>
+        <span class="t">
+          <h2 id="agent-title" data-hint="&lt;b&gt;Главное по этому выпуску:&lt;/b&gt; что ожидается по выработке и какие риски. Ниже — предупреждения, часы риска и, если нужно проверить работу агента, полный журнал его действий.">Вывод по выпуску</h2>
+          <span class="meta"><span id="agent-when"></span><span id="agent-mode"></span></span>
         </span>
-        <span><b>Вывод агента</b><p id="conclusion"></p></span>
       </div>
+      <div class="outcome"><p id="conclusion"></p></div>
+      <div id="banner"></div>
+      <div class="flags" id="flags"></div>
+      <details class="trace" id="trace-box">
+        <summary id="trace-sum">Как агент получил этот прогноз</summary>
+        <ol class="steps" id="steps"></ol>
+      </details>
     </aside>
   </section>
 
@@ -869,7 +886,8 @@ footer .wrap { display: flex; gap: 16px; flex-wrap: wrap; justify-content: space
   /* архивные прогнозы: слой previous_day1 — прогноз, выпущенный сутками ранее */
   function fetchArchive(from, to) {
     var u = "https://previous-runs-api.open-meteo.com/v1/forecast?latitude=" + LAT + "&longitude=" + LON +
-      "&hourly=" + VARS_PREV + "&start_date=" + from + "&end_date=" + to + "&timezone=Asia%2FAlmaty";
+      "&hourly=" + VARS_PREV + "&start_date=" + from + "&end_date=" + to +
+      "&wind_speed_unit=ms&timezone=Asia%2FAlmaty";   /* иначе км/ч: завышение в 3,6 раза */
     return getJSON(u).then(function (d) {
       var h = d.hourly, out = [];
       for (var i = 0; i < h.time.length; i++) {
@@ -884,7 +902,8 @@ footer .wrap { display: flex; gap: 16px; flex-wrap: wrap; justify-content: space
   /* текущий прогон: то, что доступно диспетчеру сейчас */
   function fetchLive(days) {
     var u = "https://api.open-meteo.com/v1/forecast?latitude=" + LAT + "&longitude=" + LON +
-      "&hourly=" + VARS_LIVE + "&forecast_days=" + days + "&timezone=Asia%2FAlmaty";
+      "&hourly=" + VARS_LIVE + "&forecast_days=" + days +
+      "&wind_speed_unit=ms&timezone=Asia%2FAlmaty";   /* иначе км/ч: завышение в 3,6 раза */
     return getJSON(u).then(function (d) {
       var h = d.hourly, out = [];
       for (var i = 0; i < h.time.length; i++) {
@@ -1390,7 +1409,7 @@ footer .wrap { display: flex; gap: 16px; flex-wrap: wrap; justify-content: space
     switch (t.tool) {
       case "get_weather": return "Open-Meteo";
       case "check_input_quality": return r.verdict === "ok" ? "ok" : r.verdict;
-      case "prepare_and_predict": return "модель " + D.model.fingerprint;
+      case "prepare_and_predict": return "";
       case "analyze": return r.needs_recalculation ? "нужен пересчёт" : "ограничений нет";
       case "save_forecast": return r.confidence ? "достоверность " + r.confidence : "";
       default: return "";
@@ -1400,8 +1419,9 @@ footer .wrap { display: flex; gap: 16px; flex-wrap: wrap; justify-content: space
   function drawAgent() {
     var log = agentLog(), a = log.analysis || {}, it = issue();
     var n = span(), rk = risks(it, n);
+    $("agent-title").textContent = "Вывод по выпуску";
     $("agent-mode").innerHTML = log.llm_used
-      ? "<span class='badge'>порядок инструментов выбрала модель</span>"
+      ? "<span class='badge'>порядок выбрала модель</span>"
       : "<span class='badge'>детерминированный план</span>";
     $("agent-when").textContent = "выпуск к концу " + dmy(it.issue_date + "T") + "." + it.issue_date.slice(0, 4);
 
@@ -1420,37 +1440,52 @@ footer .wrap { display: flex; gap: 16px; flex-wrap: wrap; justify-content: space
                : svgIc('<path d="M5 12.5l4.5 4.5L19 7.5"/>', 13)) +
         '</span>' +
         '<span class="body"><span class="nm"><span class="no">' + no + '.</span> ' +
-          (STEP_RU[t.tool] || t.tool) + (rep ? " <span class='no'>(повтор после пересчёта)</span>" : "") +
+          (STEP_RU[t.tool] || t.tool) + ' <span class="tool">' + t.tool + '</span>' +
+          (rep ? " <span class='no'>(повтор после пересчёта)</span>" : "") +
         '</span><span class="dt">' + ruText(stepDetail(t)) + '</span></span>' +
         '<span class="right">' + stepRight(t) + '</span>';
       ol.appendChild(li);
     });
+    $("trace-box").hidden = false;
+    $("trace-sum").textContent = "Как агент получил этот прогноз · " + no +
+      (no % 10 === 1 && no % 100 !== 11 ? " шаг" : (no % 10 >= 2 && no % 10 <= 4 && (no % 100 < 12 || no % 100 > 14) ? " шага" : " шагов"));
 
     var th = D.thresholds || { cut_in: 3, rated: 11.5, storm: 22 };
     var scope = "Посчитано по показанному горизонту (" + n + " ч); трасса и заключение относятся " +
       "к полному выпуску на 48 ч.";
     $("flags").innerHTML =
-      flag(IC.calm, "Штиль", rk.calm + " ч",
+      flag(IC.calm, "Часы штиля", rk.calm + " ч",
         "<b>Часов с прогнозной скоростью ветра ниже " + ru(th.cut_in, 1) + " м/с</b> — турбина не " +
         "запускается, выработка близка к нулю. " + scope) +
-      flag(IC.chart, "Номинал", rk.rated + " ч",
+      flag(IC.chart, "Часы номинала", rk.rated + " ч",
         "<b>Часов со скоростью от " + ru(th.rated, 1) + " м/с</b> — машина на полке номинальной " +
         "мощности: дальнейший рост ветра выработку уже не увеличивает. " + scope) +
-      flag(IC.storm, "Шторм", rk.storm + " ч",
+      flag(IC.storm, "Часы шторма", rk.storm + " ч",
         "<b>Часов со скоростью от " + ru(th.storm, 1) + " м/с</b> — буревая защита останавливает " +
         "турбину, прогноз на эти часы обнуляется. " + scope) +
-      flag(IC.spread, "Разница турбин", ru(rk.spread, 3) + " н.",
-        "<b>Максимальная за горизонт разница прогноза двух машин</b>, в долях номинала. Турбины " +
+      flag(IC.spread, "Разброс турбин", ru(rk.spread * 100, 1) + " %",
+        "<b>Максимальная за горизонт разница прогноза двух машин</b>, в процентах от номинала. Турбины " +
         "стоят в 400 м друг от друга, погода у них одна, поэтому различие невелико и отражает " +
         "разные кривые мощности, а не разный ветер. " + scope);
 
     var box = $("banner");
-    if (log.recalculated) {
+    var sv = traceFind(log, "save_forecast") || {};
+    var warnIc = svgIc('<path d="M12 8v5M12 16.5v.1"/><circle cx="12" cy="12" r="9.2"/>', 17);
+    var infoIc = svgIc('<path d="M20 11.5a8 8 0 1 1-2.4-5.6"/><path d="M20 3v5h-5"/>', 17);
+    if (sv.published === false) {                 /* настоящая проблема — только это красное */
+      box.innerHTML = '<div class="banner red"><span class="bi">' + warnIc +
+        '</span><span><b>Выпуск не опубликован</b>входные данные не прошли контроль качества, ' +
+        'прогноз на этот день выдавать нельзя.</span></div>';
+    } else if (sv.confidence && sv.confidence !== "обычная") {
+      box.innerHTML = '<div class="banner amber"><span class="bi">' + warnIc +
+        '</span><span><b>Пониженная достоверность</b>к входным данным есть замечания: ' +
+        ruText(sv.confidence) + '. Прогноз выпущен, но полагаться на него следует осторожнее.</span></div>';
+    } else if (log.recalculated) {
       var rc = traceFind(log, "recalculate") || {};
-      box.innerHTML = '<div class="banner red"><span class="bi">' +
-        svgIc('<path d="M12 8v5M12 16.5v.1"/><circle cx="12" cy="12" r="9.2"/>', 17) +
-        '</span><span><b>Выполнен пересчёт</b>' + ruText(rc.trigger_detail || "") +
-        (rc.rows_zeroed ? ". Обнулено строк по буревой защите: " + rc.rows_zeroed : "") + '</span></div>';
+      box.innerHTML = '<div class="banner info"><span class="bi">' + infoIc +
+        '</span><span><b>Прогноз пересчитан</b>' + ruText(rc.trigger_detail || "") +
+        (rc.rows_zeroed ? ". Обнулено строк по буревой защите: " + rc.rows_zeroed : "") +
+        '. Показан результат после пересчёта.</span></div>';
     } else {
       box.innerHTML = '<div class="banner green"><span class="bi">' +
         svgIc('<path d="M5 12.5l4.5 4.5L19 7.5"/>', 17) +
@@ -1727,6 +1762,7 @@ footer .wrap { display: flex; gap: 16px; flex-wrap: wrap; justify-content: space
     $("agent-when").textContent = it ? it.range.from + " — " + it.range.to : "";
     $("agent-title").textContent = "Параметры расчёта";
     clear($("steps")); $("flags").innerHTML = ""; $("banner").innerHTML = "";
+    $("trace-box").hidden = true;
     if (!it) { $("conclusion").textContent = state.err || "Период не выбран."; return; }
     var th = (D.thresholds || { cut_in: 3, rated: 11.5, storm: 22 }), a = it.agent.analysis;
     var rows = [

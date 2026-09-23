@@ -1,6 +1,15 @@
 {
   "issue_date": "2026-02-27",
   "llm_used": false,
+  "published": true,
+  "confidence": "обычная",
+  "quality": {
+    "verdict": "ok",
+    "hours": 48,
+    "expected_hours": 48,
+    "findings": [],
+    "publish_allowed": true
+  },
   "recalculated": false,
   "analysis": {
     "calm_hours": 17,
@@ -11,6 +20,8 @@
       "1": 0.292,
       "2": 0.281
     },
+    "previous_issue_available": true,
+    "previous_issue_source": "передан вызывающим",
     "input_update_vs_previous_issue": {
       "overlap_hours": 24,
       "mean_abs_change": 0.049,
@@ -39,6 +50,16 @@
       }
     },
     {
+      "tool": "check_input_quality",
+      "result": {
+        "verdict": "ok",
+        "hours": 48,
+        "expected_hours": 48,
+        "findings": [],
+        "publish_allowed": true
+      }
+    },
+    {
       "tool": "prepare_and_predict",
       "result": {
         "hours": 48,
@@ -64,6 +85,8 @@
           "1": 0.292,
           "2": 0.281
         },
+        "previous_issue_available": true,
+        "previous_issue_source": "передан вызывающим",
         "input_update_vs_previous_issue": {
           "overlap_hours": 24,
           "mean_abs_change": 0.049,
@@ -77,8 +100,10 @@
     {
       "tool": "save_forecast",
       "result": {
+        "published": true,
         "path": "outputs\\forecasts\\2026-02-27.csv",
-        "rows": 96
+        "rows": 96,
+        "confidence": "обычная"
       }
     }
   ]

@@ -1,6 +1,15 @@
 {
   "issue_date": "2026-01-31",
   "llm_used": false,
+  "published": true,
+  "confidence": "обычная",
+  "quality": {
+    "verdict": "ok",
+    "hours": 48,
+    "expected_hours": 48,
+    "findings": [],
+    "publish_allowed": true
+  },
   "recalculated": false,
   "analysis": {
     "calm_hours": 8,
@@ -11,12 +20,18 @@
       "1": 0.249,
       "2": 0.246
     },
-    "input_update_vs_previous_issue": null,
-    "input_change_vs_previous_issue": null,
+    "previous_issue_available": true,
+    "previous_issue_source": "передан вызывающим",
+    "input_update_vs_previous_issue": {
+      "overlap_hours": 24,
+      "mean_abs_change": 0.051,
+      "max_abs_change": 0.139
+    },
+    "input_change_vs_previous_issue": 0.051,
     "update_threshold": 0.15,
     "needs_recalculation": false
   },
-  "conclusion": "Прогноз на 48 ч от 2026-01-31: средняя нормализованная мощность T1 0.25, T2 0.25; ожидаемая выработка 12.0 и 11.8 норм·ч. Часов штиля 8, часов на номинале 0, штормовых 0. Пересчёт не потребовался.",
+  "conclusion": "Прогноз на 48 ч от 2026-01-31: средняя нормализованная мощность T1 0.25, T2 0.25; ожидаемая выработка 12.0 и 11.8 норм·ч. Часов штиля 8, часов на номинале 0, штормовых 0. Относительно прогноза предыдущего дня входные данные изменились в среднем на 0.051 при пороге пересчёта 0.15. Пересчёт не потребовался.",
   "trace": [
     {
       "tool": "get_weather",
@@ -32,6 +47,16 @@
         "temp_min": -2.5,
         "temp_max": 8.7,
         "source": "Open-Meteo Previous Runs, выпуск не позже даты прогноза"
+      }
+    },
+    {
+      "tool": "check_input_quality",
+      "result": {
+        "verdict": "ok",
+        "hours": 48,
+        "expected_hours": 48,
+        "findings": [],
+        "publish_allowed": true
       }
     },
     {
@@ -60,8 +85,14 @@
           "1": 0.249,
           "2": 0.246
         },
-        "input_update_vs_previous_issue": null,
-        "input_change_vs_previous_issue": null,
+        "previous_issue_available": true,
+        "previous_issue_source": "передан вызывающим",
+        "input_update_vs_previous_issue": {
+          "overlap_hours": 24,
+          "mean_abs_change": 0.051,
+          "max_abs_change": 0.139
+        },
+        "input_change_vs_previous_issue": 0.051,
         "update_threshold": 0.15,
         "needs_recalculation": false
       }
@@ -69,8 +100,10 @@
     {
       "tool": "save_forecast",
       "result": {
+        "published": true,
         "path": "outputs\\forecasts\\2026-01-31.csv",
-        "rows": 96
+        "rows": 96,
+        "confidence": "обычная"
       }
     }
   ]

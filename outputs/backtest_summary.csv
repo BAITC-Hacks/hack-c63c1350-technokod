@@ -1,5 +1,7 @@
 issue_date,hours,recomputed,llm_used,storm_hours,calm_hours,rated_hours,mean_cf_t1,mean_cf_t2,mean_abs_change_vs_prev
-2026-01-31,48,False,False,0,8,0,0.249,0.246,
+2026-01-29,48,False,False,0,4,0,0.571,0.575,
+2026-01-30,48,False,False,0,12,0,0.339,0.339,0.117
+2026-01-31,48,False,False,0,8,0,0.249,0.246,0.051
 2026-02-01,48,False,False,0,4,0,0.302,0.295,0.082
 2026-02-02,48,False,False,0,6,0,0.239,0.238,0.069
 2026-02-03,48,False,False,0,2,4,0.553,0.545,0.087

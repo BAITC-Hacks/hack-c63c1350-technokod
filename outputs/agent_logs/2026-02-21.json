@@ -1,6 +1,15 @@
 {
   "issue_date": "2026-02-21",
   "llm_used": false,
+  "published": true,
+  "confidence": "обычная",
+  "quality": {
+    "verdict": "ok",
+    "hours": 48,
+    "expected_hours": 48,
+    "findings": [],
+    "publish_allowed": true
+  },
   "recalculated": true,
   "analysis": {
     "calm_hours": 12,
@@ -11,6 +20,8 @@
       "1": 0.359,
       "2": 0.354
     },
+    "previous_issue_available": true,
+    "previous_issue_source": "прочитан с диска: 2026-02-20.csv",
     "input_update_vs_previous_issue": {
       "overlap_hours": 24,
       "mean_abs_change": 0.184,
@@ -39,6 +50,16 @@
       }
     },
     {
+      "tool": "check_input_quality",
+      "result": {
+        "verdict": "ok",
+        "hours": 48,
+        "expected_hours": 48,
+        "findings": [],
+        "publish_allowed": true
+      }
+    },
+    {
       "tool": "prepare_and_predict",
       "result": {
         "hours": 48,
@@ -64,6 +85,8 @@
           "1": 0.359,
           "2": 0.354
         },
+        "previous_issue_available": true,
+        "previous_issue_source": "прочитан с диска: 2026-02-20.csv",
         "input_update_vs_previous_issue": {
           "overlap_hours": 24,
           "mean_abs_change": 0.184,
@@ -92,8 +115,16 @@
     {
       "tool": "recalculate",
       "result": {
-        "reason": "обновление входных данных или штормовые часы",
+        "trigger": "input_update",
+        "trigger_detail": "расхождение с выпуском 2026-02-20 равно 0.184 при пороге 0.15",
+        "trigger_values": {
+          "mean_abs_change": 0.184,
+          "threshold": 0.15,
+          "previous_issue": "2026-02-20"
+        },
+        "reason_passed": "расхождение с выпуском 2026-02-20 равно 0.184 при пороге 0.15",
         "input_changed": false,
+        "note": "повторный опрос архива на прошедшую дату возвращает тот же срез, поэтому input_changed=false; в промышленном режиме здесь пришёл бы новый выпуск прогноза погоды",
         "storm_hours": 0,
         "rows_zeroed": 0
       }
@@ -101,8 +132,10 @@
     {
       "tool": "save_forecast",
       "result": {
+        "published": true,
         "path": "outputs\\forecasts\\2026-02-21.csv",
-        "rows": 96
+        "rows": 96,
+        "confidence": "обычная"
       }
     }
   ]

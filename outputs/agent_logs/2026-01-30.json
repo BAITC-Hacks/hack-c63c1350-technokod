@@ -1,0 +1,110 @@
+{
+  "issue_date": "2026-01-30",
+  "llm_used": false,
+  "published": true,
+  "confidence": "обычная",
+  "quality": {
+    "verdict": "ok",
+    "hours": 48,
+    "expected_hours": 48,
+    "findings": [],
+    "publish_allowed": true
+  },
+  "recalculated": false,
+  "analysis": {
+    "calm_hours": 12,
+    "rated_hours": 0,
+    "storm_hours": 0,
+    "turbine_spread_max": 0.047,
+    "mean_cf": {
+      "1": 0.339,
+      "2": 0.339
+    },
+    "previous_issue_available": true,
+    "previous_issue_source": "передан вызывающим",
+    "input_update_vs_previous_issue": {
+      "overlap_hours": 24,
+      "mean_abs_change": 0.117,
+      "max_abs_change": 0.33
+    },
+    "input_change_vs_previous_issue": 0.117,
+    "update_threshold": 0.15,
+    "needs_recalculation": false
+  },
+  "conclusion": "Прогноз на 48 ч от 2026-01-30: средняя нормализованная мощность T1 0.34, T2 0.34; ожидаемая выработка 16.3 и 16.3 норм·ч. Часов штиля 12, часов на номинале 0, штормовых 0. Относительно прогноза предыдущего дня входные данные изменились в среднем на 0.117 при пороге пересчёта 0.15. Пересчёт не потребовался.",
+  "trace": [
+    {
+      "tool": "get_weather",
+      "result": {
+        "hours": 48,
+        "from": "2026-01-31 00:00:00",
+        "to": "2026-02-01 23:00:00",
+        "lead1_hours": 24,
+        "lead2_hours": 24,
+        "ws100_min": 0.3,
+        "ws100_mean": 5.4,
+        "ws100_max": 8.9,
+        "temp_min": -4.9,
+        "temp_max": 6.5,
+        "source": "Open-Meteo Previous Runs, выпуск не позже даты прогноза"
+      }
+    },
+    {
+      "tool": "check_input_quality",
+      "result": {
+        "verdict": "ok",
+        "hours": 48,
+        "expected_hours": 48,
+        "findings": [],
+        "publish_allowed": true
+      }
+    },
+    {
+      "tool": "prepare_and_predict",
+      "result": {
+        "hours": 48,
+        "rows": 96,
+        "mean_cf": {
+          "1": 0.339,
+          "2": 0.339
+        },
+        "energy_norm_h": {
+          "1": 16.3,
+          "2": 16.3
+        }
+      }
+    },
+    {
+      "tool": "analyze",
+      "result": {
+        "calm_hours": 12,
+        "rated_hours": 0,
+        "storm_hours": 0,
+        "turbine_spread_max": 0.047,
+        "mean_cf": {
+          "1": 0.339,
+          "2": 0.339
+        },
+        "previous_issue_available": true,
+        "previous_issue_source": "передан вызывающим",
+        "input_update_vs_previous_issue": {
+          "overlap_hours": 24,
+          "mean_abs_change": 0.117,
+          "max_abs_change": 0.33
+        },
+        "input_change_vs_previous_issue": 0.117,
+        "update_threshold": 0.15,
+        "needs_recalculation": false
+      }
+    },
+    {
+      "tool": "save_forecast",
+      "result": {
+        "published": true,
+        "path": "outputs\\forecasts\\2026-01-30.csv",
+        "rows": 96,
+        "confidence": "обычная"
+      }
+    }
+  ]
+}

@@ -9,6 +9,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
+import numpy as np
 import pandas as pd
 import pytest
 
@@ -48,7 +49,9 @@ def test_storm_zeroes_every_power_column(isolated_outputs, monkeypatch):
     import app.agent as agent
 
     storm = forecast_available_at(FARM, "2026-02-10", 48).copy()
-    storm["wind_speed_100m"] = 25.0  # выше порога отключения 22 м/с
+    # выше порога отключения 22 м/с, но переменный: константа была бы отбракована
+    # контролем качества как застрявшее значение датчика
+    storm["wind_speed_100m"] = 25.0 + np.linspace(0, 3, len(storm))
     monkeypatch.setattr(agent, "forecast_available_at", lambda *a, **k: storm.copy())
 
     s = agent.ForecastAgent().run_day("2026-02-10", use_llm=False)
@@ -78,7 +81,7 @@ def test_llm_failure_falls_back_to_deterministic_plan(isolated_outputs, monkeypa
 
     tools = [t["tool"] for t in s.trace]
     assert tools[0] == "llm_fallback" and "429" in s.trace[0]["result"]["error"]
-    assert tools[1:] == ["get_weather", "prepare_and_predict", "analyze", "save_forecast"]
+    assert tools[1:] == ["get_weather", "check_input_quality", "prepare_and_predict", "analyze", "save_forecast"]
     assert s.llm_used is False
     assert len(s.forecast) == 96 and s.conclusion
 

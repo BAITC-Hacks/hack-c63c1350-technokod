@@ -38,7 +38,7 @@ def test_features_complete():
 def test_agent_day_deterministic(isolated_outputs):
     from app.agent import ForecastAgent
     s = ForecastAgent().run_day("2026-02-10", use_llm=False)
-    assert [t["tool"] for t in s.trace][:3] == ["get_weather", "prepare_and_predict", "analyze"]
+    assert [t["tool"] for t in s.trace][:4] == ["get_weather", "check_input_quality", "prepare_and_predict", "analyze"]
     assert s.forecast["power_norm_pred"].between(0, 1).all()
     assert s.forecast["ts"].nunique() == 48
 

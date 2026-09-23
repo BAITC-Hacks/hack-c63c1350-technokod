@@ -1,6 +1,15 @@
 {
   "issue_date": "2026-02-05",
   "llm_used": true,
+  "published": true,
+  "confidence": "обычная",
+  "quality": {
+    "verdict": "ok",
+    "hours": 48,
+    "expected_hours": 48,
+    "findings": [],
+    "publish_allowed": true
+  },
   "recalculated": false,
   "analysis": {
     "calm_hours": 8,
@@ -11,6 +20,8 @@
       "1": 0.443,
       "2": 0.444
     },
+    "previous_issue_available": true,
+    "previous_issue_source": "прочитан с диска: 2026-02-04.csv",
     "input_update_vs_previous_issue": {
       "overlap_hours": 24,
       "mean_abs_change": 0.131,
@@ -20,7 +31,7 @@
     "update_threshold": 0.15,
     "needs_recalculation": false
   },
-  "conclusion": "Прогноз на 48 часов выпущен и сохранён. Ожидаемая выработка: турбина 1 — 21.2 нормо-часа, турбина 2 — 21.3 нормо-часа; средний коэффициент использования почти одинаковый. Риски умеренные: есть 8 часов штиля, но штормовых часов нет, поэтому буревая защита не требуется. По сравнению с прошлым выпуском заметных изменений нет, пересчёт не потребовался.",
+  "conclusion": "Прогноз на 48 часов выпущен: ожидаемая выработка составляет около 21.2 нормо-часа для турбины 1 и 21.3 для турбины 2. Риски умеренные: есть 8 часов штиля, но часов шторма нет, поэтому ограничение по ветру не ожидается. По сравнению с прошлым выпуском существенных изменений нет, пересчёт не потребовался. Достоверность обычная, входные данные прошли проверку без замечаний.",
   "trace": [
     {
       "tool": "get_weather",
@@ -36,6 +47,16 @@
         "temp_min": -2.0,
         "temp_max": 6.5,
         "source": "Open-Meteo Previous Runs, выпуск не позже даты прогноза"
+      }
+    },
+    {
+      "tool": "check_input_quality",
+      "result": {
+        "verdict": "ok",
+        "hours": 48,
+        "expected_hours": 48,
+        "findings": [],
+        "publish_allowed": true
       }
     },
     {
@@ -64,6 +85,8 @@
           "1": 0.443,
           "2": 0.444
         },
+        "previous_issue_available": true,
+        "previous_issue_source": "прочитан с диска: 2026-02-04.csv",
         "input_update_vs_previous_issue": {
           "overlap_hours": 24,
           "mean_abs_change": 0.131,
@@ -77,8 +100,10 @@
     {
       "tool": "save_forecast",
       "result": {
+        "published": true,
         "path": "outputs\\forecasts\\2026-02-05.csv",
-        "rows": 96
+        "rows": 96,
+        "confidence": "обычная"
       }
     }
   ]

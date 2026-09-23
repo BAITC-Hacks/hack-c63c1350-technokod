@@ -1,0 +1,40 @@
+name: CI
+
+on: [push, pull_request]
+
+jobs:
+  tests:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        # эталонное окружение проекта — Python 3.14; в матрице стоят версии,
+        # гарантированно доступные в actions/setup-python
+        python-version: ['3.12', '3.13']
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+          cache: pip
+
+      - name: Установка зависимостей
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Проверка окружения
+        run: python scripts/check_env.py
+
+      - name: Компиляция исходников
+        run: python -m compileall -q app scripts tests
+
+      # Тесты работают без сети и без ключей: архивные прогнозы погоды лежат
+      # в data/cache/weather и закоммичены. Тест выпуска агента помечен skipif
+      # и в CI пропускается: models/*.joblib намеренно не коммитятся (pickle
+      # привязан к версии scikit-learn), а обучение занимает около 4 минут
+      # и в CI сознательно не запускается.
+      - name: Автотесты
+        run: python -m pytest -q tests

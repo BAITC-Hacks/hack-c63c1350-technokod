@@ -71,7 +71,7 @@ curl -s "http://127.0.0.1:8010/forecast/2026-02-10?horizon=24&llm=false"
   "recalculated": false,
   "conclusion": "Прогноз на 24 ч от 2026-02-10: средняя нормализованная мощность T1 0.54, T2 0.52; ожидаемая выработка 12.9 и 12.5 норм·ч…",
   "forecast": [
-    {"ts": "2026-02-11 00:00", "lead_day": 1, "turbine": 1, "power_norm_pred": 0.5107, "power_p10": 0.2607, "power_p90": 0.8107}
+    {"ts": "2026-02-11 00:00", "lead_day": 1, "turbine": 1, "power_norm_pred": 0.9683, "power_p10": 0.8611, "power_p90": 1.0}
   ]
 }
 ```
@@ -139,7 +139,7 @@ python -m app.cli fetch-weather --start 2026-01-31 --end 2026-02-27
 
 ### `train`
 
-Обучение моделей обеих турбин, около 4 минут. Создаёт `models/turbine_1.joblib`, `models/turbine_2.joblib` и перезаписывает `docs/metrics.json`. Печатает подобранные веса смеси и ошибку на честной валидации января 2026.
+Обучение моделей обеих турбин, около 15 секунд. Создаёт `models/turbine_1.joblib`, `models/turbine_2.joblib` и перезаписывает `docs/metrics.json`. Печатает подобранные веса смеси и ошибку на честной валидации января 2026.
 
 ### `forecast --date ДАТА [--horizon 48] [--llm | --no-llm]`
 

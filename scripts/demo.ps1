@@ -31,7 +31,7 @@ Write-Host '================================================================'
 Write-Host ' Контрольный сценарий WindAgent'
 Write-Host " Интерпретатор: $PY  ($version)"
 if (-not (Test-Path 'models\turbine_1.joblib')) {
-    Write-Host ' Модели не обучены: шаг 2 выполнит обучение, это займёт около 4 минут.'
+    Write-Host ' Модели не обучены: шаг 2 выполнит обучение, это займёт около 15 секунд.'
 } else {
     Write-Host ' Модели уже обучены: шаг 2 будет пропущен.'
 }
@@ -45,7 +45,7 @@ Write-Host '[2/7] Обучение моделей'
 if ((Test-Path 'models\turbine_1.joblib') -and (Test-Path 'models\turbine_2.joblib')) {
     Write-Host 'Модели уже обучены, шаг пропущен (удалите папку models, чтобы переобучить).'
 } else {
-    Write-Host 'Моделей нет, запускаю обучение (около 4 минут).'
+    Write-Host 'Моделей нет, запускаю обучение (около 15 секунд).'
     & $PY -m app.cli train
     if ($LASTEXITCODE -ne 0) { Write-Host "Обучение завершилось с ошибкой (код $LASTEXITCODE)"; exit $LASTEXITCODE }
 }

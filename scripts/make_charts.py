@@ -1,8 +1,8 @@
 """Построение иллюстраций для README из артефактов репозитория.
 
 Строит две картинки:
-- docs/validation_jan2026.png — факт выработки против честного прогноза за показательную неделю января 2026;
-- docs/forecast_feb2026.png — итоговый почасовой прогноз февраля 2026 с полосой P10–P90.
+- assets/validation_jan2026.png — факт выработки против честного прогноза за показательную неделю января 2026;
+- assets/forecast_feb2026.png — итоговый почасовой прогноз февраля 2026 с полосой P10–P90.
 
 Сеть и ключи не нужны: погода берётся из кэша data/cache/weather, модели из models/,
 факт из data/raw, числа ошибки из docs/metrics.json.
@@ -27,6 +27,7 @@ from app.model import GenerationModel
 from app.weather import FARM, forecast_available_at
 
 DOCS = Path("docs")
+ASSETS = Path("assets")  # иллюстрации репозитория, см. CONTRIBUTING.md
 OUTPUTS = Path("outputs")
 FIGSIZE = (14.5, 5.5)  # при dpi=110 это примерно 1600x600 точек
 DPI = 110
@@ -75,7 +76,7 @@ def chart_validation() -> Path:
     ax.xaxis.set_major_locator(mdates.DayLocator())
     ax.legend(loc="upper right")
     fig.tight_layout()
-    path = DOCS / "validation_jan2026.png"
+    path = ASSETS / "validation_jan2026.png"
     fig.savefig(path)
     plt.close(fig)
     print(f"{path}: часов на графике {len(df)}, факт {df['power_norm'].mean():.3f}, прогноз {df['power_norm_pred'].mean():.3f}")
@@ -104,7 +105,7 @@ def chart_february() -> Path:
     ax.xaxis.set_major_locator(mdates.DayLocator(interval=2))
     ax.legend(loc="upper right", ncol=3)
     fig.tight_layout()
-    path = DOCS / "forecast_feb2026.png"
+    path = ASSETS / "forecast_feb2026.png"
     fig.savefig(path)
     plt.close(fig)
     print(f"{path}: часов {len(df)}, пропусков lead1 {int(df['turbine_1_lead1'].isna().sum())}")
@@ -114,6 +115,7 @@ def chart_february() -> Path:
 def main() -> None:
     if not (Path("models") / "turbine_1.joblib").exists():
         raise SystemExit("Модели не обучены. Выполните: python -m app.cli train")
+    ASSETS.mkdir(exist_ok=True)
     chart_validation()
     chart_february()
 

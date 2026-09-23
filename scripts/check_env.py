@@ -23,12 +23,13 @@ def main() -> int:
     from app.config import settings
 
     print(f"LLM_PROVIDER={settings.llm_provider} DEMO_MODE={settings.demo_mode}")
-    if settings.llm_provider == "openai" and not settings.openai_api_key and not settings.demo_mode:
-        ok = False
-        print("  [нет] OPENAI_API_KEY (или включите DEMO_MODE=true)")
-    if settings.llm_provider == "nvidia" and not settings.nvidia_api_key:
-        ok = False
-        print("  [нет] NVIDIA_API_KEY")
+    has_key = (settings.llm_provider == "openai" and settings.openai_api_key) or (
+        settings.llm_provider == "nvidia" and settings.nvidia_api_key
+    )
+    if has_key:
+        print("  [ok] ключ LLM задан, доступна оркестрация агента моделью")
+    else:
+        print("  [инфо] ключ LLM не задан: агент работает по детерминированному плану, это не ошибка")
     print("Итог:", "готово" if ok else "есть проблемы")
     return 0 if ok else 1
 

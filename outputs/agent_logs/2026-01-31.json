@@ -5,11 +5,11 @@
     "calm_hours": 8,
     "rated_hours": 0,
     "storm_hours": 0,
-    "turbine_spread_max": 0.052,
+    "turbine_spread_max": 0.149,
     "input_update_vs_previous_issue": null,
     "needs_recalculation": false
   },
-  "conclusion": "Прогноз на 48 ч от 2026-01-31: средняя нормализованная мощность T1 0.25, T2 0.24. Часов штиля 8, часов на номинале 0, штормовых 0.",
+  "conclusion": "Прогноз на 48 ч от 2026-01-31: средняя нормализованная мощность T1 0.26, T2 0.24. Часов штиля 8, часов на номинале 0, штормовых 0.",
   "trace": [
     {
       "tool": "get_weather",
@@ -28,8 +28,8 @@
     {
       "tool": "prepare_and_predict",
       "result": {
-        "turbine_1_mean": 0.253,
-        "turbine_2_mean": 0.236,
+        "turbine_1_mean": 0.257,
+        "turbine_2_mean": 0.241,
         "hours": 48
       }
     },
@@ -39,7 +39,7 @@
         "calm_hours": 8,
         "rated_hours": 0,
         "storm_hours": 0,
-        "turbine_spread_max": 0.052,
+        "turbine_spread_max": 0.149,
         "input_update_vs_previous_issue": null,
         "needs_recalculation": false
       }

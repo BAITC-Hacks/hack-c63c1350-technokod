@@ -1,19 +1,19 @@
 {
   "issue_date": "2026-02-15",
-  "recalculated": false,
+  "recalculated": true,
   "analysis": {
     "calm_hours": 0,
     "rated_hours": 0,
     "storm_hours": 0,
-    "turbine_spread_max": 0.06,
+    "turbine_spread_max": 0.149,
     "input_update_vs_previous_issue": {
       "overlap_hours": 24,
-      "mean_abs_change": 0.143,
-      "max_abs_change": 0.374
+      "mean_abs_change": 0.164,
+      "max_abs_change": 0.457
     },
-    "needs_recalculation": false
+    "needs_recalculation": true
   },
-  "conclusion": "Прогноз на 48 ч от 2026-02-15: средняя нормализованная мощность T1 0.35, T2 0.32. Часов штиля 0, часов на номинале 0, штормовых 0. Относительно прогноза предыдущего дня входные данные изменились на 0.143 в среднем.",
+  "conclusion": "Прогноз на 48 ч от 2026-02-15: средняя нормализованная мощность T1 0.39, T2 0.36. Часов штиля 0, часов на номинале 0, штормовых 0. Относительно прогноза предыдущего дня входные данные изменились на 0.164 в среднем. Выполнен повторный расчёт.",
   "trace": [
     {
       "tool": "get_weather",
@@ -32,8 +32,8 @@
     {
       "tool": "prepare_and_predict",
       "result": {
-        "turbine_1_mean": 0.353,
-        "turbine_2_mean": 0.32,
+        "turbine_1_mean": 0.39,
+        "turbine_2_mean": 0.356,
         "hours": 48
       }
     },
@@ -43,13 +43,28 @@
         "calm_hours": 0,
         "rated_hours": 0,
         "storm_hours": 0,
-        "turbine_spread_max": 0.06,
+        "turbine_spread_max": 0.149,
         "input_update_vs_previous_issue": {
           "overlap_hours": 24,
-          "mean_abs_change": 0.143,
-          "max_abs_change": 0.374
+          "mean_abs_change": 0.164,
+          "max_abs_change": 0.457
         },
-        "needs_recalculation": false
+        "needs_recalculation": true
+      }
+    },
+    {
+      "tool": "prepare_and_predict",
+      "result": {
+        "turbine_1_mean": 0.39,
+        "turbine_2_mean": 0.356,
+        "hours": 48
+      }
+    },
+    {
+      "tool": "recalculate",
+      "result": {
+        "reason": "обновление входных данных или штормовые часы",
+        "storm_hours_zeroed": 0
       }
     }
   ]

@@ -38,28 +38,32 @@ def main() -> None:
         train = ds[ds["ts"] <= TRAIN_END]
         model = GenerationModel(t).fit(train)
         m = honest_predictions(model, hourly)
-        # подбор веса смеси
+        # подбор весов смеси трёх компонентов на сетке с шагом 0.1
         grid = {}
-        for w in np.linspace(0, 1, 11):
-            blend = w * m["power_gbm_pred"] + (1 - w) * m["power_curve_pred"]
-            grid[round(float(w), 1)] = round(evaluate(m["power_norm"].values, blend.values).mae, 4)
-        best_w = min(grid, key=grid.get)
-        model.blend_w = best_w
-        res = {"train_rows": int(len(train)), "blend_w_gbm": best_w, "val_mae_by_w": grid, "honest_jan2026": {}}
+        for wg in np.arange(0, 1.01, 0.1):
+            for wt in np.arange(0, 1.01 - wg, 0.1):
+                wc = 1 - wg - wt
+                blend = wg * m["power_gbm_pred"] + wt * m["power_two_stage_pred"] + wc * m["power_curve_pred"]
+                grid[(round(float(wg), 1), round(float(wt), 1))] = evaluate(m["power_norm"].values, blend.values).mae
+        (bg, bt) = min(grid, key=grid.get)
+        weights = {"gbm": bg, "two_stage": bt, "curve": round(1 - bg - bt, 1)}
+        model.weights = weights
+        res = {"train_rows": int(len(train)), "weights": weights, "honest_jan2026": {}}
         for lead in (1, 2):
             s = m[m["lead_day"] == lead]
-            blend = best_w * s["power_gbm_pred"] + (1 - best_w) * s["power_curve_pred"]
+            blend = bg * s["power_gbm_pred"] + bt * s["power_two_stage_pred"] + (1 - bg - bt) * s["power_curve_pred"]
             res["honest_jan2026"][f"lead{lead}"] = {
                 "blend": evaluate(s["power_norm"].values, blend.values).as_dict(),
                 "gbm": evaluate(s["power_norm"].values, s["power_gbm_pred"].values).as_dict(),
+                "two_stage": evaluate(s["power_norm"].values, s["power_two_stage_pred"].values).as_dict(),
                 "curve": evaluate(s["power_norm"].values, s["power_curve_pred"].values).as_dict(),
             }
         final = GenerationModel(t).fit(ds)
-        final.blend_w = best_w
+        final.weights = weights
         res["model_path"] = str(final.save())
         res["train_rows_final"] = int(len(ds))
         save_metrics(f"turbine_{t}", res)
-        print(f"turbine {t}: w_gbm={best_w} lead1={res['honest_jan2026']['lead1']['blend']} lead2={res['honest_jan2026']['lead2']['blend']}")
+        print(f"turbine {t}: weights={weights} lead1={res['honest_jan2026']['lead1']['blend']} lead2={res['honest_jan2026']['lead2']['blend']}")
 
 
 if __name__ == "__main__":

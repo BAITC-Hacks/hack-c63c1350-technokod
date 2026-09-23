@@ -138,7 +138,7 @@ class ForecastAgent:
         out = s.forecast.copy()
         out["issue_date"] = s.issue_date
         out["horizon_hour"] = ((out["ts"] - pd.Timestamp(s.issue_date).normalize() - pd.Timedelta(days=1)).dt.total_seconds() // 3600 + 1).astype(int)
-        cols = ["issue_date", "ts", "horizon_hour", "lead_day", "turbine", "power_norm_pred", "power_gbm_pred", "power_curve_pred"]
+        cols = ["issue_date", "ts", "horizon_hour", "lead_day", "turbine", "power_norm_pred", "power_gbm_pred", "power_two_stage_pred", "power_curve_pred", "wind_nacelle_pred"]
         path = OUT_DIR / f"{s.issue_date}.csv"
         out[cols].sort_values(["turbine", "ts"]).to_csv(path, index=False)
         log = {"issue_date": s.issue_date, "recalculated": s.recalculated, "analysis": s.analysis,

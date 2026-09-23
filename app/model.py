@@ -52,27 +52,48 @@ class PowerCurve:
 
 
 class GenerationModel:
+    """Три компонента и их смесь:
+    - curve: кривая мощности по прогнозной скорости ветра на 100 м;
+    - gbm: бустинг признаки прогноза -> мощность;
+    - two_stage: бустинг признаки прогноза -> скорость ветра на гондоле, затем измеренная кривая
+      мощности турбины (ветер гондолы -> мощность), которая почти детерминирована.
+    Веса смеси подбираются на честной валидации (scripts/train.py)."""
+
     def __init__(self, turbine: int):
         self.turbine = turbine
         self.gbm = HistGradientBoostingRegressor(
             max_iter=600, learning_rate=0.05, max_leaf_nodes=31, min_samples_leaf=40, l2_regularization=1.0, random_state=42
         )
+        self.wind_gbm = HistGradientBoostingRegressor(
+            max_iter=500, learning_rate=0.05, max_leaf_nodes=31, min_samples_leaf=50, l2_regularization=1.0, random_state=42
+        )
         self.curve = PowerCurve()
-        self.blend_w = 0.5  # вес GBM в смеси, подбирается на честной валидации
+        self.nacelle_curve = PowerCurve(step=0.25)
+        self.weights = {"gbm": 0.0, "two_stage": 0.5, "curve": 0.5}
 
     def fit(self, train: pd.DataFrame) -> "GenerationModel":
         self.gbm.fit(train[FEATURES], train["power_norm"])
         self.curve.fit(train["wind_speed_100m"], train["power_norm"])
+        ok = train.dropna(subset=["wind_ms"])
+        self.wind_gbm.fit(ok[FEATURES], ok["wind_ms"])
+        self.nacelle_curve.fit(ok["wind_ms"], ok["power_norm"])
         return self
 
     def predict(self, weather: pd.DataFrame) -> pd.DataFrame:
         df = build_features(weather)
         pred = self.gbm.predict(df[FEATURES])
         curve = self.curve.predict(df["wind_speed_100m"])
+        wind_nac = pd.Series(self.wind_gbm.predict(df[FEATURES])).clip(lower=0)
+        two_stage = self.nacelle_curve.predict(wind_nac)
         out = df[["ts"]].copy()
         out["power_gbm_pred"] = np.clip(pred, 0, 1)
         out["power_curve_pred"] = np.clip(curve, 0, 1)
-        out["power_norm_pred"] = self.blend_w * out["power_gbm_pred"] + (1 - self.blend_w) * out["power_curve_pred"]
+        out["power_two_stage_pred"] = np.clip(two_stage, 0, 1)
+        out["wind_nacelle_pred"] = wind_nac.values
+        w = self.weights
+        out["power_norm_pred"] = (
+            w["gbm"] * out["power_gbm_pred"] + w["two_stage"] * out["power_two_stage_pred"] + w["curve"] * out["power_curve_pred"]
+        )
         if "lead_day" in df.columns:
             out["lead_day"] = df["lead_day"].values
         return out

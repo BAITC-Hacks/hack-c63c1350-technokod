@@ -103,6 +103,7 @@ svg.ic { flex: none; display: block; }
 
 /* ---------- строка чипов ---------- */
 .chiprow { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; padding: 14px 0 0; }
+[hidden] { display: none !important; }
 .chip {
   display: inline-flex; align-items: center; gap: 8px; height: 38px; padding: 0 12px;
   background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-control);
@@ -624,9 +625,8 @@ footer .wrap { display: flex; gap: 16px; flex-wrap: wrap; justify-content: space
         <span class="mode" id="wind-mode">—</span>
       </span>
     </div>
-    <p class="hint">Частота вращения пропорциональна <b>p<sup>1∕3</sup></b>: мощность ветра растёт как куб скорости,
-      поэтому кубический корень возвращает скорость вращения ротора. Показан <b id="rot-when">—</b>;
-      наведите курсор на график, чтобы увидеть конкретный час.</p>
+    <p class="hint" data-hint="&lt;b&gt;Скорость вращения роторов отражает прогноз.&lt;/b&gt; Частота пропорциональна кубическому корню из мощности: мощность ветра растёт как куб скорости, поэтому обратное преобразование возвращает скорость вращения. При штиле ротор останавливается.">Показан
+      <b id="rot-when">—</b>; наведите курсор на график, чтобы увидеть конкретный час.</p>
   </section>
 
   <!-- 3 и 4. График и панель агента -->

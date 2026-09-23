@@ -796,6 +796,7 @@ footer .wrap { display: flex; gap: 16px; flex-wrap: wrap; justify-content: space
     hx.style.left = left + "px"; hx.style.top = top + "px";
   }
   function hintHide() {
+    hintCancel();
     hx.classList.remove("on");
     if (hxFor) hxFor.removeAttribute("aria-describedby");
     hxFor = null;
@@ -807,12 +808,26 @@ footer .wrap { display: flex; gap: 16px; flex-wrap: wrap; justify-content: space
     }
     return null;
   }
+  /* Подсказка по наведению открывается с задержкой: без неё она выскакивала
+     при каждом движении мыши через экран и создавала визуальный шум.
+     С клавиатуры — сразу, там намерение однозначно. */
+  var HINT_DELAY = 500, hintTimer = null;
+  function hintCancel() { if (hintTimer) { clearTimeout(hintTimer); hintTimer = null; } }
   document.addEventListener("mouseover", function (e) {
     var t = hintTarget(e.target);
-    if (t && t !== hxFor) hintShow(t); else if (!t && hxFor) hintHide();
+    hintCancel();
+    if (t && t !== hxFor) {
+      hintTimer = setTimeout(function () { hintTimer = null; hintShow(t); }, HINT_DELAY);
+    } else if (!t && hxFor) {
+      hintHide();
+    }
+  });
+  document.addEventListener("mouseout", function (e) {
+    if (!hintTarget(e.relatedTarget)) hintCancel();
   });
   document.addEventListener("focusin", function (e) {
     var t = hintTarget(e.target);
+    hintCancel();
     if (t) hintShow(t); else hintHide();
   });
   document.addEventListener("focusout", hintHide);

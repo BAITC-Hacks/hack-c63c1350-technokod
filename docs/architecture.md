@@ -46,7 +46,7 @@ historical-forecast  ┴─────►  build_features        forecast_avail
                             смесь весов + квантили остатков
                                   │
                                   ▼
-                            app/agent.py  WindAgent
+                            app/agent.py  ForecastAgent
                             get_weather → prepare_and_predict → analyze
                                        → [recalculate] → save_forecast        ┌─► outputs/forecasts/<дата>.csv
                             оркестратор: LLM (app/llm.py) либо план ──────────┴─► outputs/agent_logs/<дата>.json
@@ -69,7 +69,7 @@ historical-forecast  ┴─────►  build_features        forecast_avail
 | `app/features.py` | 16 признаков из прогноза и календаря, стыковка с фактом | `build_features`, `make_training_set`, `FEATURES` | numpy, pandas |
 | `app/model.py` | три компонента прогноза, их смесь, интервал P10–P90, метрики | `GenerationModel`, `PowerCurve`, `evaluate`, `level_bin` | scikit-learn, joblib |
 | `app/llm.py` | единый клиент LLM, function calling, кэш ответов для режима без ключей | `chat`, `chat_tools`, `available` | openai SDK |
-| `app/agent.py` | агентный цикл, пять инструментов, журнал действий | `WindAgent`, `DayResult`, `TOOL_SCHEMAS` | model, weather, llm |
+| `app/agent.py` | агентный цикл, пять инструментов, журнал действий | `ForecastAgent`, `AgentState`, `FORECAST_COLUMNS` | model, weather, llm |
 | `app/backtest.py` | последовательные выпуски, сборка итогового ряда февраля | `backtest`, `build_submission`, `run` | agent |
 | `app/cli.py` | командная строка | `main`, `cmd_*` | agent, backtest, scripts.train |
 | `scripts/train.py` | обучение, подбор весов смеси, квантили остатков, запись метрик | `main`, `honest_predictions` | model, weather, data |
@@ -112,24 +112,26 @@ historical-forecast  ┴─────►  build_features        forecast_avail
 | `turbine` | 1 или 2 |
 | `wind_speed_100m` | прогнозная скорость ветра на высоте 100 м, м/с |
 | `power_norm_pred` | итоговый прогноз смеси, 0..1 |
-| `power_gbm_pred`, `power_curve_pred` | компоненты смеси по отдельности |
+| `power_p10`, `power_p90` | границы интервала неопределённости по квантилям остатков валидации |
+| `power_gbm_pred`, `power_two_stage_pred`, `power_curve_pred` | три компонента смеси по отдельности |
+| `wind_nacelle_pred` | промежуточный выход двухэтапной схемы: прогнозная скорость ветра на гондоле, м/с |
 
-Модель считает ещё два выхода — `power_two_stage_pred` (двухшаговый компонент) и интервал
-`power_p10`/`power_p90`. В выпуск они сейчас не записываются; `app/backtest.py` переносит их в сводный
-файл, если они появятся в выпуске.
+Всего 13 колонок, значения округлены до четырёх знаков. Порядок задаётся `FORECAST_COLUMNS`;
+`app/backtest.py` переносит в сводный файл те из них, что присутствуют в выпуске.
 
 Сводные файлы:
 
 | Файл | Строк | Колонки |
 |---|---|---|
 | `outputs/forecast_all_issues.csv` | 28 × 96 = 2688 | `issue_date, ts, horizon_hour, lead_day, turbine, power_norm_pred, …компоненты` |
-| `outputs/forecast_feb2026.csv` | 672 (01.02 00:00 – 28.02 23:00, без пропусков) | `ts, turbine_1_lead1, turbine_2_lead1, turbine_1_lead2, turbine_2_lead2, farm_mean_lead1` |
+| `outputs/forecast_feb2026.csv` | 672 (01.02 00:00 – 28.02 23:00, без пропусков) | `ts, turbine_1_lead1, turbine_2_lead1, turbine_1_lead2, turbine_2_lead2, turbine_1_p10, turbine_2_p10, turbine_1_p90, turbine_2_p90, farm_mean_lead1` |
 | `outputs/backtest_summary.csv` | 28 | `issue_date, hours, recomputed, llm_used, storm_hours, calm_hours, rated_hours, mean_cf_t1, mean_cf_t2, mean_abs_change_vs_prev` |
-| `outputs/agent_logs/<дата>.json` | 28 файлов | `issue_date, llm_used, recalculated, rows, analysis, conclusion, trace, paths` |
+| `outputs/agent_logs/<дата>.json` | 28 файлов | `issue_date, llm_used, recalculated, analysis, conclusion, trace` |
+| `outputs/agent_logs_llm/<дата>.json` | 3 файла | те же поля; выпуски 05.02, 15.02 и 21.02, где порядок инструментов выбирала LLM |
 
-Для 01.02.2026 колонки `*_lead2` пусты: прогноз за двое суток потребовал бы выпуск от 30.01, то есть
-выход за тестовый период. Это единственный час-разрыв по построению, остальные 27 суток покрыты обоими
-горизонтами.
+Для 01.02.2026 колонки `*_lead2` пусты все 24 часа: прогноз за двое суток потребовал бы выпуск от 30.01,
+то есть выход за тестовый период. Это единственный разрыв по построению, остальные 27 суток покрыты
+обоими горизонтами.
 
 ## Сквозные решения
 
@@ -141,12 +143,16 @@ historical-forecast  ┴─────►  build_features        forecast_avail
 
 **Кэш и работа без сети.** Каждый HTTP-запрос кэшируется на диск по хешу «url + параметры» в
 `data/cache/weather/`; кэш лежит в репозитории, поэтому обучение, прогноз и бэктест повторяются без
-интернета. Ответы LLM кэшируются в `data/cache/demo_responses.json` для режима проверки без ключей.
+интернета. Шаги оркестрации не кэшируются: в `DEMO_MODE` и без ключа выпуск целиком выполняет
+детерминированный планировщик, поэтому числовой результат от наличия ключа не зависит.
 
-**Откат LLM.** Любая ошибка оркестрации — нет ключа, сеть, лимит, модель не дошла до `save_forecast` —
-переводит выпуск на детерминированный план. В трассе появляется запись `llm_fallback` с причиной,
-расчётное состояние сбрасывается, чтобы частичный результат модели не смешался с планом. Набор
-инструментов и формат результата в обоих режимах одинаковы.
+**Откат LLM и устойчивость.** Ошибка провайдера — нет ключа, сеть, лимит, некорректный ответ —
+переводит выпуск на детерминированный план целиком: в трассе появляется запись `llm_fallback` с
+причиной, план заново проходит весь цикл, поэтому частичный результат модели не смешивается с планом.
+Ошибка отдельного инструмента провайдером не считается: она возвращается модели как результат вызова
+(`{"error": …}`), и модель исправляет порядок сама. Если модель не вызвала `analyze` или
+`save_forecast`, это делает страховка в `run_day`, так что выпуск всегда полон. Набор инструментов и
+формат результата в обоих режимах одинаковы.
 
 **Часовые пояса.** Данные ВЭС в местном времени, погода запрашивается с `timezone=Asia/Almaty`, стыковка
 по локальному часу. Переход Казахстана на UTC+5 в марте 2024 обрабатывается на стороне источника, сдвигов
@@ -154,7 +160,7 @@ historical-forecast  ┴─────►  build_features        forecast_avail
 
 **Пропуски.** Часы с менее чем тремя 10-минутными записями помечаются пропуском и не интерполируются:
 `make_training_set` делает inner join и `dropna`, поэтому в обучение попадают только часы с фактом
-(T1 — 1 629 часов без факта, T2 — 388). Прогноз при этом считается на все 48 часов горизонта.
+(T1 — 1 649 часов без факта, T2 — 449, разбор в `docs/data-quality.md`). Прогноз при этом считается на все 48 часов горизонта.
 
 **Воспроизводимость.** Случайность зафиксирована (`random_state=42`), веса смеси и квантили остатков
 хранятся внутри `models/turbine_*.joblib`, метрики пишет тот же скрипт, который обучает модель

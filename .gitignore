@@ -8,7 +8,7 @@ __pycache__/
 venv/
 .pytest_cache/
 # data and outputs
-data/raw/
+
 data/cache/
 *.duckdb
 *.log

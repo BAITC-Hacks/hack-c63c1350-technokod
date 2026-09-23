@@ -36,6 +36,18 @@ def forecast(issue_date: str, horizon: int = 48, llm: bool = False) -> dict:
         s = ForecastAgent().run_day(issue_date, horizon_hours=horizon, use_llm=llm)
     except RuntimeError as e:
         raise HTTPException(503, str(e))
+    quality = getattr(s, "quality", None) or {}
+    published = getattr(s, "published", s.forecast is not None)
+    if s.forecast is None or not published:
+        # контроль качества входа забраковал данные: выпуска нет, и это штатный отказ,
+        # а не сбой сервиса — отдаём причину, а не пустой прогноз
+        raise HTTPException(422, {
+            "error": "выпуск не состоялся: входные данные не прошли контроль качества",
+            "issue_date": issue_date,
+            "quality": quality,
+            "tools": [t["tool"] for t in s.trace],
+            "conclusion": s.conclusion,
+        })
     f = s.forecast.copy()
     f["ts"] = f["ts"].dt.strftime("%Y-%m-%d %H:%M")
     cols = ["ts", "lead_day", "turbine", "power_norm_pred", "power_p10", "power_p90"]
@@ -44,6 +56,8 @@ def forecast(issue_date: str, horizon: int = 48, llm: bool = False) -> dict:
         "horizon_hours": horizon,
         "tools": [t["tool"] for t in s.trace],
         "analysis": s.analysis,
+        "quality": quality,
+        "confidence": getattr(s, "confidence", "обычная"),
         "recalculated": s.recalculated,
         "conclusion": s.conclusion,
         "forecast": f[cols].round(4).to_dict(orient="records"),

@@ -482,7 +482,7 @@ footer .wrap { display: flex; gap: 16px; flex-wrap: wrap; justify-content: space
 
   <!-- 1. Чипы: что за выпуск и можно ли ему верить как «прогнозу на тот момент» -->
   <div class="chiprow" role="group" aria-label="Параметры выпуска">
-    <div class="chip" data-hint="&lt;b&gt;Дата выпуска прогноза.&lt;/b&gt; Момент выпуска — конец суток (23:59): прогноз опирается только на погодные прогнозы, выпущенные в течение этого дня, и покрывает следующие двое суток.">
+    <div class="chip" data-hint="&lt;b&gt;Дата выпуска прогноза.&lt;/b&gt; Момент выпуска — конец суток (23:59): прогноз опирается только на погодные прогнозы, выпущенные в течение этого дня, и покрывает следующие двое суток.&lt;br&gt;&lt;br&gt;В списке 30 выпусков тестового периода кейса, 29.01–27.02.2026: страница статическая и показывает уже посчитанные выпуски, сама она ничего не считает. Прогноз на другую дату делается из репозитория: &lt;code&gt;python -m app.cli forecast --date ГГГГ-ММ-ДД&lt;/code&gt; для дат с 16.02.2024 (раньше архива прогнозов не существует) или &lt;code&gt;python -m app.cli forecast --live&lt;/code&gt; для выпуска на завтра по текущему прогону погоды.">
       <svg class="ic" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4.5" width="18" height="16" rx="2.5"/><path d="M3 9.5h18M8 2.5v4M16 2.5v4"/></svg>
       <span class="k">Выпуск</span>
       <button class="nav" type="button" id="prev" aria-label="Предыдущий выпуск">‹</button>

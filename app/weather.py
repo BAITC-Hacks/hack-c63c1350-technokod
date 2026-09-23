@@ -158,3 +158,36 @@ def previous_runs_training(site: Site, start: str = "2024-02-16", end: str = "20
         d["lead_day"] = lead
         rows.append(d)
     return pd.concat(rows, ignore_index=True).dropna(subset=["wind_speed_100m"]).reset_index(drop=True)
+
+
+FORECAST_URL = "https://api.open-meteo.com/v1/forecast"
+
+
+def forecast_live(site: Site, horizon_hours: int = 48, start_tomorrow: bool = True) -> pd.DataFrame:
+    """Оперативный прогноз на ближайшие сутки по текущему прогону модели погоды.
+
+    Previous Runs отдаёт только архивные слои: «что предсказывали сутки назад про этот час».
+    Для будущего такого слоя ещё нет, поэтому рабочий выпуск на завтра берётся из обычного
+    Forecast API — это текущий прогон, то есть ровно то, что доступно диспетчеру сейчас.
+
+    start_tomorrow=True — покрываются следующие сутки и послезавтра (как в бэктесте,
+    выпуск в конце дня закрывает D+1 и D+2). False — ближайшие horizon_hours от текущего часа.
+
+    lead_day проставляется по фактическому удалению от момента запроса: 1 для первых суток,
+    2 для вторых — так признак совпадает с тем, на чём обучена модель.
+    """
+    params = {
+        "latitude": site.lat,
+        "longitude": site.lon,
+        "hourly": ",".join(BASE_VARS),
+        "forecast_days": 4,
+        "timezone": TZ,
+    }
+    df = _to_frame(_cached_get(FORECAST_URL, params))
+    now = pd.Timestamp.now(tz=TZ).tz_localize(None)
+    start = (now.normalize() + pd.Timedelta(days=1)) if start_tomorrow else now.ceil("h")
+    end = start + pd.Timedelta(hours=horizon_hours - 1)
+    out = df[(df["ts"] >= start) & (df["ts"] <= end)].copy()
+    out["issue_date"] = now.strftime("%Y-%m-%d")
+    out["lead_day"] = ((out["ts"] - start).dt.total_seconds() // 86400 + 1).clip(1, 2).astype(int)
+    return out[["ts", "issue_date", "lead_day"] + BASE_VARS].reset_index(drop=True)

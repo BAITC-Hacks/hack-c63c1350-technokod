@@ -89,10 +89,14 @@ def cmd_train() -> int:
     return 0
 
 
-def cmd_forecast(date: str, horizon: int, use_llm: bool | None) -> int:
+def cmd_forecast(date: str, horizon: int, use_llm: bool | None, live: bool = False) -> int:
     from app.agent import ForecastAgent
 
-    s = ForecastAgent().run_day(date, horizon_hours=horizon, use_llm=use_llm)
+    if live:
+        from datetime import date as _d
+        date = _d.today().isoformat()
+        print("оперативный выпуск: текущий прогон Open-Meteo Forecast API, покрываются следующие двое суток")
+    s = ForecastAgent(live=live).run_day(date, horizon_hours=horizon, use_llm=use_llm)
     tools = " → ".join(t.get("tool", "?") for t in s.trace)
     print(f"выпуск прогноза {s.issue_date}, горизонт {s.horizon_hours} ч")
     print(f"трасса инструментов: {tools}")
@@ -165,8 +169,10 @@ def main(argv: list[str] | None = None) -> int:
     w.add_argument("--end", required=True)
     sub.add_parser("train", help="обучение моделей")
     f = sub.add_parser("forecast", help="прогноз агентом на одну дату")
-    f.add_argument("--date", required=True, help="дата выпуска прогноза, YYYY-MM-DD")
+    f.add_argument("--date", help="дата выпуска прогноза, YYYY-MM-DD (не нужна при --live)")
     f.add_argument("--horizon", type=int, default=48)
+    f.add_argument("--live", action="store_true",
+                   help="оперативный выпуск на завтра по текущему прогону погоды, а не воспроизведение прошлого")
     _add_llm_flags(f)
     b = sub.add_parser("backtest", help="все выпуски тестового периода")
     b.add_argument("--start", default="2026-01-29")
@@ -183,7 +189,7 @@ def main(argv: list[str] | None = None) -> int:
     if a.cmd == "train":
         return cmd_train()
     if a.cmd == "forecast":
-        return cmd_forecast(a.date, a.horizon, _llm_flag(a))
+        return cmd_forecast(a.date, a.horizon, _llm_flag(a), a.live)
     if a.cmd == "backtest":
         return cmd_backtest(a.start, a.end, a.horizon, _llm_flag(a))
     if a.cmd == "report":

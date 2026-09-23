@@ -25,7 +25,7 @@ from typing import Any, Callable
 import pandas as pd
 
 from app.model import GenerationModel
-from app.weather import FARM, forecast_available_at
+from app.weather import FARM, forecast_available_at, forecast_live
 
 OUT_DIR = Path("outputs/forecasts")
 LOG_DIR = Path("outputs/agent_logs")
@@ -105,7 +105,9 @@ class ForecastAgent:
         horizon_hours: int = 48,
         max_steps: int = 10,
         models: dict[int, GenerationModel] | None = None,
+        live: bool = False,
     ) -> None:
+        self.live = live  # оперативный выпуск на завтра вместо воспроизведения прошлого
         self.turbines = tuple(turbines)
         if models is None:
             missing = [t for t in self.turbines if not (Path("models") / f"turbine_{t}.joblib").exists()]
@@ -132,9 +134,17 @@ class ForecastAgent:
         return result
 
     def get_weather(self, issue_date: str | None = None) -> dict:
-        """Архивный прогноз на 24–48 часов, каким он был на дату выпуска. Факт погоды не используется."""
+        """Прогноз на 24–48 часов по координатам ВЭС. Факт погоды не используется.
+
+        Ретроспектива (по умолчанию): архивный срез Previous Runs на дату выпуска.
+        Оперативный режим (`live=True` при создании агента): текущий прогон Forecast API —
+        так решение выпускает прогноз на завтра, а не только воспроизводит прошлое.
+        """
         s = self.state
-        s.weather = forecast_available_at(FARM, issue_date or s.issue_date, s.horizon_hours)
+        if self.live:
+            s.weather = forecast_live(FARM, s.horizon_hours)
+        else:
+            s.weather = forecast_available_at(FARM, issue_date or s.issue_date, s.horizon_hours)
         w = s.weather
         return self._log("get_weather", {
             "hours": int(len(w)), "from": str(w["ts"].min()), "to": str(w["ts"].max()),
@@ -144,7 +154,8 @@ class ForecastAgent:
             "ws100_max": round(float(w["wind_speed_100m"].max()), 1),
             "temp_min": round(float(w["temperature_2m"].min()), 1),
             "temp_max": round(float(w["temperature_2m"].max()), 1),
-            "source": "Open-Meteo Previous Runs, выпуск не позже даты прогноза",
+            "source": ("Open-Meteo Forecast API, текущий прогон (оперативный выпуск)" if self.live
+                       else "Open-Meteo Previous Runs, прогнозы суток выпуска"),
         })
 
     def check_input_quality(self) -> dict:

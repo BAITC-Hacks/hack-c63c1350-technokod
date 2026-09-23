@@ -1,681 +1,1049 @@
-<!DOCTYPE html>
-<html lang="ru">
+<!doctype html>
+<html lang="ru" data-palette="#1A6B9B,#C87C00">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>WindAgent — прогноз выработки ВЭС</title>
-<meta name="description" content="Agentic AI для почасового прогнозирования выработки ветроэлектростанции на 24–48 часов. Команда Technokod, HackAlem AI 2026.">
+<title>WindAgent — прогноз выработки ВЭС на 48 часов</title>
+<meta name="description" content="Дашборд диспетчера ВЭС: почасовой прогноз выработки двух турбин на 24–48 часов с коридором неопределённости, трассой решений агента и сводкой для заявки на рынок.">
+<link rel="icon" href="demo/favicon.svg" type="image/svg+xml">
+<link rel="icon" href="demo/favicon-32.png" sizes="32x32">
+<link rel="apple-touch-icon" href="demo/apple-touch-icon-180.png">
 <style>
-  :root {
-    color-scheme: light;
-    --plane:          #f9f9f7;
-    --surface:        #fcfcfb;
-    --ink:            #0b0b0b;
-    --ink-2:          #52514e;
-    --ink-muted:      #898781;
-    --grid:           #e1e0d9;
-    --axis:           #c3c2b7;
-    --border:         rgba(11,11,11,0.10);
-    --s1:             #2a78d6;
-    --s2:             #eb6834;
-    --good:           #0ca30c;
-    --radius:         10px;
-  }
-  @media (prefers-color-scheme: dark) {
-    :root:not([data-theme="light"]) {
-      color-scheme: dark;
-      --plane:        #0d0d0d;
-      --surface:      #1a1a19;
-      --ink:          #ffffff;
-      --ink-2:        #c3c2b7;
-      --ink-muted:    #898781;
-      --grid:         #2c2c2a;
-      --axis:         #383835;
-      --border:       rgba(255,255,255,0.10);
-      --s1:           #3987e5;
-      --s2:           #d95926;
-      --good:         #0ca30c;
-    }
-  }
-  :root[data-theme="dark"] {
+:root {
+  color-scheme: light;
+  --font: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  --font-mono: ui-monospace, SFMono-Regular, "Cascadia Mono", Consolas, monospace;
+
+  --brand-800: #0E3A57;  --brand-700: #124A6E;  --brand-600: #1A6B9B;
+  --brand-500: #2E8DC2;  --brand-100: #DCEBF4;
+  --accent-600: #C87C00; --accent-500: #E08A00; --accent-100: #FBEBCF;
+
+  --bg: #F6F8FA;         --surface: #FFFFFF;    --surface-2: #EDF1F4;
+  --text: #10191F;       --text-2: #4A5A66;     --text-muted: #6B7C88;
+  --border: #D8E0E6;     --grid: #EDF1F4;       --link: #1A6B9B;
+
+  --series-1: #1A6B9B;   --series-2: #C87C00;
+  --band: rgba(26,107,155,.10);  --ref: #6B7C88;
+  --farm: #0E3A57;
+
+  --ok: #0CA30C; --warn: #FAB219; --serious: #EC835A; --fail: #D03B3B;
+
+  --radius-control: 6px; --radius-card: 12px;
+  --shadow: 0 1px 2px rgba(16,25,31,.06), 0 8px 24px rgba(16,25,31,.06);
+  --content: 1240px; --measure: 720px;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
     color-scheme: dark;
-    --plane:        #0d0d0d;
-    --surface:      #1a1a19;
-    --ink:          #ffffff;
-    --ink-2:        #c3c2b7;
-    --ink-muted:    #898781;
-    --grid:         #2c2c2a;
-    --axis:         #383835;
-    --border:       rgba(255,255,255,0.10);
-    --s1:           #3987e5;
-    --s2:           #d95926;
+    --brand-100: #17313F;  --accent-100: #3A2D10;
+    --bg: #0D1216;         --surface: #151D23;   --surface-2: #1E2933;
+    --text: #EDF1F4;       --text-2: #B6C2CB;    --text-muted: #8697A3;
+    --border: #2A3742;     --grid: #1E2933;      --link: #6FB4DB;
+    --series-1: #2E8DC2;   --series-2: #C87C00;
+    --band: rgba(46,141,194,.13); --ref: #8697A3;
+    --farm: #6FB4DB;
+    --shadow: none;
   }
+}
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --brand-100: #17313F;  --accent-100: #3A2D10;
+  --bg: #0D1216;         --surface: #151D23;   --surface-2: #1E2933;
+  --text: #EDF1F4;       --text-2: #B6C2CB;    --text-muted: #8697A3;
+  --border: #2A3742;     --grid: #1E2933;      --link: #6FB4DB;
+  --series-1: #2E8DC2;   --series-2: #C87C00;
+  --band: rgba(46,141,194,.13); --ref: #8697A3;
+  --farm: #6FB4DB;
+  --shadow: none;
+}
 
-  * { box-sizing: border-box; }
-  html { -webkit-text-size-adjust: 100%; }
-  body {
-    margin: 0;
-    background: var(--plane);
-    color: var(--ink);
-    font: 16px/1.6 system-ui, -apple-system, "Segoe UI", sans-serif;
-  }
-  .wrap { max-width: 1060px; margin: 0 auto; padding: 32px 20px 72px; }
+* { box-sizing: border-box; }
+html, body { margin: 0; padding: 0; }
+body {
+  font-family: var(--font); font-size: 15px; line-height: 24px;
+  color: var(--text); background: var(--bg);
+  -webkit-text-size-adjust: 100%;
+}
+h1, h2, h3 { margin: 0; font-weight: 600; }
+h1 { font-size: 17px; line-height: 24px; }
+h2 { font-size: 22px; line-height: 28px; letter-spacing: -.01em; }
+h3 { font-size: 17px; line-height: 24px; }
+p { margin: 0 0 12px; }
+a { color: var(--link); text-underline-offset: 2px; }
+small { font-size: 13px; line-height: 18px; }
+.num { font-variant-numeric: tabular-nums; }
 
-  header.top { padding-bottom: 8px; }
-  .eyebrow { color: var(--ink-muted); font-size: 13px; letter-spacing: .04em; text-transform: uppercase; margin: 0 0 10px; }
-  h1 { font-size: clamp(26px, 4.4vw, 38px); line-height: 1.2; margin: 0 0 10px; letter-spacing: -0.01em; }
-  .lede { color: var(--ink-2); font-size: clamp(16px, 2.2vw, 18px); margin: 0 0 18px; max-width: 70ch; }
-  .chips { display: flex; flex-wrap: wrap; gap: 8px; margin: 0 0 14px; padding: 0; list-style: none; }
-  .chip {
-    border: 1px solid var(--border); border-radius: 999px; padding: 4px 12px;
-    font-size: 13px; color: var(--ink-2); background: var(--surface);
-  }
-  .links { display: flex; flex-wrap: wrap; gap: 14px; font-size: 14px; }
-  .links a { color: var(--s1); text-decoration: none; border-bottom: 1px solid transparent; }
-  .links a:hover, .links a:focus-visible { border-bottom-color: currentColor; }
+.wrap { max-width: var(--content); margin: 0 auto; padding: 0 20px; }
 
-  section { margin-top: 44px; }
-  h2 { font-size: clamp(20px, 3vw, 24px); margin: 0 0 6px; letter-spacing: -0.01em; }
-  h3 { font-size: 16px; margin: 24px 0 8px; }
-  .sub { color: var(--ink-2); margin: 0 0 18px; max-width: 74ch; }
-  p { margin: 0 0 12px; }
+/* ---------- верхняя панель ---------- */
+.topbar {
+  border-bottom: 1px solid var(--border); background: var(--surface);
+  position: sticky; top: 0; z-index: 20;
+}
+.topbar .wrap { display: flex; align-items: center; gap: 16px; min-height: 60px; flex-wrap: wrap; }
+.brand { display: flex; align-items: center; gap: 10px; text-decoration: none; color: inherit; }
+.brand img { width: 32px; height: 32px; display: block; border-radius: 8px; }
+.brand .mk-dark { display: none; }
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) .brand .mk-light { display: none; }
+  :root:not([data-theme="light"]) .brand .mk-dark { display: block; }
+}
+:root[data-theme="dark"] .brand .mk-light { display: none; }
+:root[data-theme="dark"] .brand .mk-dark { display: block; }
+.brand b { font-weight: 650; letter-spacing: -.01em; }
+.brand span { color: var(--text-muted); font-size: 13px; }
+.topnav { margin-left: auto; display: flex; align-items: center; gap: 14px; font-size: 13px; }
+.topnav a { color: var(--text-2); text-decoration: none; }
+.topnav a:hover { color: var(--link); text-decoration: underline; }
+.iconbtn {
+  border: 1px solid var(--border); background: var(--surface); color: var(--text-2);
+  border-radius: var(--radius-control); height: 30px; padding: 0 10px; cursor: pointer;
+  font: inherit; font-size: 13px;
+}
+.iconbtn:hover { border-color: var(--link); color: var(--link); }
 
-  .card {
-    background: var(--surface); border: 1px solid var(--border);
-    border-radius: var(--radius); padding: 18px;
-  }
+/* ---------- карточки ---------- */
+.card {
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: var(--radius-card); box-shadow: var(--shadow);
+}
+main { padding: 20px 0 48px; }
+section { margin-bottom: 16px; }
 
-  /* фильтры: один ряд над графиком */
-  .filters { display: flex; flex-wrap: wrap; gap: 18px; align-items: center; margin-bottom: 14px; }
-  .filter-group { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
-  .filter-label { font-size: 13px; color: var(--ink-muted); }
-  .seg { display: inline-flex; border: 1px solid var(--border); border-radius: 8px; overflow: hidden; background: var(--surface); }
-  .seg button {
-    appearance: none; border: 0; background: transparent; color: var(--ink-2);
-    font: inherit; font-size: 14px; padding: 6px 12px; cursor: pointer; white-space: nowrap;
-  }
-  .seg button + button { border-left: 1px solid var(--border); }
-  .seg button:hover { background: var(--grid); }
-  .seg button[aria-pressed="true"] { background: var(--ink); color: var(--surface); }
-  .seg button:focus-visible { outline: 2px solid var(--s1); outline-offset: -2px; }
+/* ---------- шапка управления ---------- */
+.controls { padding: 14px 16px; }
+.ctl-row { display: flex; gap: 20px; align-items: flex-end; flex-wrap: wrap; }
+.field { display: flex; flex-direction: column; gap: 5px; }
+.field > label, .field > .lbl {
+  font-size: 11px; line-height: 14px; font-weight: 500;
+  letter-spacing: .04em; text-transform: uppercase; color: var(--text-muted);
+}
+select, .seg button, .stepper button {
+  font: inherit; font-size: 14px; color: var(--text);
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: var(--radius-control); height: 34px;
+}
+select { padding: 0 8px; min-width: 150px; font-variant-numeric: tabular-nums; }
+select:focus-visible, button:focus-visible, .chart:focus-visible {
+  outline: 2px solid var(--link); outline-offset: 2px;
+}
+.stepper { display: flex; gap: 6px; align-items: center; }
+.stepper button { width: 34px; cursor: pointer; color: var(--text-2); }
+.stepper button:hover:not(:disabled) { border-color: var(--link); color: var(--link); }
+.stepper button:disabled { opacity: .4; cursor: default; }
+.seg { display: inline-flex; }
+.seg button {
+  cursor: pointer; padding: 0 12px; border-radius: 0; margin-left: -1px;
+  color: var(--text-2); font-variant-numeric: tabular-nums;
+}
+.seg button:first-child { border-radius: var(--radius-control) 0 0 var(--radius-control); margin-left: 0; }
+.seg button:last-child { border-radius: 0 var(--radius-control) var(--radius-control) 0; }
+.seg button[aria-pressed="true"] {
+  background: var(--brand-100); border-color: var(--brand-600); color: var(--brand-700); font-weight: 600; z-index: 1;
+}
+:root[data-theme="dark"] .seg button[aria-pressed="true"] { color: var(--text); }
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) .seg button[aria-pressed="true"] { color: var(--text); }
+}
+.seg button:disabled { opacity: .45; cursor: not-allowed; }
 
-  /* график */
-  .chart-wrap { position: relative; }
-  .chart-scroll { overflow-x: auto; }
-  svg.chart { display: block; width: 100%; min-width: 520px; height: auto; touch-action: pan-y; }
-  svg.chart:focus-visible { outline: 2px solid var(--s1); outline-offset: 2px; }
-  .legend { display: flex; flex-wrap: wrap; gap: 16px; margin-top: 10px; font-size: 14px; color: var(--ink-2); }
-  .legend-item { display: inline-flex; align-items: center; gap: 7px; }
-  .key-line { width: 18px; height: 2px; border-radius: 2px; display: inline-block; }
-  .key-band { width: 18px; height: 10px; border-radius: 2px; display: inline-block; }
-  .tip {
-    position: absolute; pointer-events: none; opacity: 0; transition: opacity .1s;
-    background: var(--surface); border: 1px solid var(--border); border-radius: 8px;
-    padding: 8px 10px; font-size: 13px; color: var(--ink-2); min-width: 168px;
-    box-shadow: 0 4px 14px rgba(0,0,0,.12); z-index: 3;
-  }
-  .tip .tip-x { color: var(--ink-muted); margin-bottom: 6px; font-variant-numeric: tabular-nums; }
-  .tip-row { display: flex; align-items: center; gap: 8px; margin-top: 3px; }
-  .tip-val { color: var(--ink); font-weight: 600; font-variant-numeric: tabular-nums; min-width: 42px; }
-  .note { font-size: 13px; color: var(--ink-muted); margin-top: 10px; }
+.meta {
+  margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--border);
+  display: flex; gap: 8px 28px; flex-wrap: wrap; font-size: 13px; line-height: 18px; color: var(--text-2);
+}
+.meta div { max-width: 560px; }
+.meta b { color: var(--text); font-weight: 600; }
+.meta code { font-family: var(--font-mono); font-size: 12px; }
 
-  /* плитки показателей */
-  .tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 12px; margin-bottom: 18px; }
-  .tile { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 14px 16px; }
-  .tile .t-label { font-size: 13px; color: var(--ink-muted); margin-bottom: 6px; }
-  .tile .t-value { font-size: 28px; font-weight: 600; letter-spacing: -0.02em; line-height: 1.1; }
-  .tile .t-hint { font-size: 12px; color: var(--ink-muted); margin-top: 4px; }
+/* ---------- основная сетка ---------- */
+.grid-main { display: grid; grid-template-columns: minmax(0, 1fr) 340px; gap: 16px; align-items: start; }
+.col-left { display: flex; flex-direction: column; gap: 16px; min-width: 0; }
+.bid-card { background: var(--surface); }
+@media (max-width: 1040px) {
+  .grid-main { grid-template-columns: minmax(0, 1fr); }
+  .grid-main .agent-panel { order: -1; }
+}
 
-  .table-scroll { overflow-x: auto; }
-  table { border-collapse: collapse; width: 100%; font-size: 14px; }
-  th, td { text-align: right; padding: 8px 10px; border-bottom: 1px solid var(--border); white-space: nowrap; font-variant-numeric: tabular-nums; }
-  th:first-child, td:first-child { text-align: left; font-variant-numeric: normal; }
-  thead th { color: var(--ink-muted); font-weight: 500; font-size: 13px; }
-  tbody tr:last-child td { border-bottom: 0; }
-  td.lead { font-weight: 600; }
+.card-head {
+  padding: 14px 16px 0; display: flex; justify-content: space-between;
+  align-items: baseline; gap: 12px; flex-wrap: wrap;
+}
+.card-head .sub { font-size: 13px; line-height: 18px; color: var(--text-muted); }
+.card-body { padding: 10px 16px 16px; }
 
-  details { margin-top: 14px; }
-  details > summary {
-    cursor: pointer; font-size: 14px; color: var(--s1); list-style: none;
-    padding: 4px 0; width: fit-content;
-  }
-  details > summary::-webkit-details-marker { display: none; }
-  details > summary::before { content: "▸ "; }
-  details[open] > summary::before { content: "▾ "; }
+/* ---------- график ---------- */
+.chart-box { position: relative; overflow-x: auto; overflow-y: hidden; }
+svg.chart { display: block; width: 100%; height: auto; touch-action: pan-y; }
+.gridline { stroke: var(--grid); stroke-width: 1; }
+.axis-text { fill: var(--text-muted); font-size: 11px; font-family: var(--font); font-variant-numeric: tabular-nums; }
+.axis-text.right { text-anchor: start; }
+.band-fill { fill: var(--band); }
+.s-farm { fill: none; stroke: var(--farm); stroke-width: 2.5; stroke-linejoin: round; stroke-linecap: round; }
+.s-t1 { fill: none; stroke: var(--series-1); stroke-width: 1.5; stroke-linejoin: round; stroke-linecap: round; }
+.s-t2 { fill: none; stroke: var(--series-2); stroke-width: 1.5; stroke-dasharray: 6 3; stroke-linejoin: round; stroke-linecap: round; }
+.s-prev { fill: none; stroke: var(--ref); stroke-width: 1.5; stroke-dasharray: 2 4; }
+.s-fact { fill: none; stroke: var(--ref); stroke-width: 1.5; }
+.dayline { stroke: var(--text-muted); stroke-width: 1; stroke-dasharray: 4 4; opacity: .7; }
+.daylabel { fill: var(--text-muted); font-size: 11px; font-family: var(--font); }
+.cursor-line { stroke: var(--text-2); stroke-width: 1; opacity: .8; }
+.dot { stroke: var(--surface); stroke-width: 2; }
+.dot.farm { fill: var(--farm); }
+.dot.t1 { fill: var(--series-1); }
+.dot.t2 { fill: var(--series-2); }
+.dot.fact { fill: var(--ref); }
 
-  /* трасса агента */
-  ol.trace { list-style: none; counter-reset: step; margin: 0; padding: 0; }
-  ol.trace li {
-    counter-increment: step; position: relative; padding: 0 0 18px 42px; border-left: 1px solid var(--grid);
-    margin-left: 13px;
-  }
-  ol.trace li:last-child { border-left-color: transparent; padding-bottom: 0; }
-  ol.trace li::before {
-    content: counter(step); position: absolute; left: -13px; top: 0;
-    width: 26px; height: 26px; border-radius: 50%; display: grid; place-items: center;
-    background: var(--surface); border: 1px solid var(--border);
-    font-size: 13px; color: var(--ink-2); font-variant-numeric: tabular-nums;
-  }
-  ol.trace li.hot::before { background: var(--s1); border-color: var(--s1); color: #fff; }
-  .tool { font-family: ui-monospace, "SF Mono", Consolas, monospace; font-size: 14px; color: var(--ink); }
-  .trace-body { font-size: 14px; color: var(--ink-2); margin-top: 3px; }
-  .quote {
-    border-left: 2px solid var(--s1); padding: 2px 0 2px 14px; margin: 14px 0 0;
-    color: var(--ink-2); font-size: 15px;
-  }
-  .tools-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 10px; margin-bottom: 20px; }
-  .tool-card { border: 1px solid var(--border); border-radius: 8px; padding: 10px 12px; background: var(--surface); }
-  .tool-card .tool { display: block; margin-bottom: 2px; }
-  .tool-card span.d { font-size: 13px; color: var(--ink-2); }
+.legend { display: flex; gap: 16px; flex-wrap: wrap; font-size: 13px; color: var(--text-2); padding: 0 16px 4px; }
+.legend span { display: inline-flex; align-items: center; gap: 7px; }
+.key { width: 18px; height: 0; border-top-width: 2.5px; border-top-style: solid; display: inline-block; }
+.key.farm { border-color: var(--farm); }
+.key.t1 { border-color: var(--series-1); border-top-width: 2px; }
+.key.t2 { border-color: var(--series-2); border-top-width: 2px; border-top-style: dashed; }
+.key.prev { border-color: var(--ref); border-top-width: 2px; border-top-style: dotted; }
+.key.fact { border-color: var(--ref); border-top-width: 2px; }
+.key.band { width: 18px; height: 10px; border: 0; background: var(--band); border-radius: 2px; }
 
-  ul.plain { margin: 0 0 12px; padding-left: 20px; color: var(--ink-2); }
-  ul.plain li { margin-bottom: 6px; }
-  .callout {
-    border: 1px solid var(--border); border-left: 3px solid var(--ink-muted);
-    border-radius: 8px; padding: 12px 14px; background: var(--surface);
-    font-size: 14px; color: var(--ink-2);
-  }
-  footer { margin-top: 56px; padding-top: 20px; border-top: 1px solid var(--border); font-size: 13px; color: var(--ink-muted); }
-  code { font-family: ui-monospace, "SF Mono", Consolas, monospace; font-size: 0.92em; }
+.tip {
+  position: absolute; pointer-events: none; opacity: 0; transition: opacity .1s;
+  background: var(--surface); border: 1px solid var(--border); border-radius: 8px;
+  box-shadow: 0 4px 16px rgba(16,25,31,.14); padding: 8px 10px; font-size: 13px; line-height: 19px;
+  min-width: 190px; z-index: 5;
+}
+.tip .tt { font-weight: 600; margin-bottom: 4px; font-variant-numeric: tabular-nums; }
+.tip .tr { display: flex; align-items: center; gap: 7px; justify-content: space-between; }
+.tip .tr b { font-weight: 600; font-variant-numeric: tabular-nums; margin-left: auto; }
+.tip .sw { width: 12px; height: 2px; display: inline-block; }
+
+/* ---------- панель агента ---------- */
+.agent-panel .card-body { padding-top: 6px; }
+.trace { list-style: none; margin: 0 0 14px; padding: 0; }
+.trace li {
+  display: flex; gap: 10px; padding: 7px 0; border-bottom: 1px dashed var(--border);
+  font-size: 13px; line-height: 18px;
+}
+.trace li:last-child { border-bottom: 0; }
+.trace .step {
+  flex: none; width: 20px; height: 20px; border-radius: 50%;
+  background: var(--brand-100); color: var(--brand-700);
+  font-size: 11px; font-weight: 700; display: grid; place-items: center;
+}
+:root[data-theme="dark"] .trace .step { color: var(--brand-500); }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .trace .step { color: var(--brand-500); } }
+.trace .step.warn { background: var(--accent-100); color: var(--accent-600); }
+.trace code { font-family: var(--font-mono); font-size: 12px; color: var(--text); }
+.trace .det { color: var(--text-muted); display: block; }
+
+.flags { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 12px; }
+.flag { background: var(--surface-2); border-radius: 8px; padding: 8px 10px; }
+.flag .k { font-size: 11px; line-height: 14px; color: var(--text-muted); }
+.flag .v { font-size: 20px; line-height: 26px; font-weight: 600; font-variant-numeric: tabular-nums; }
+.flag.full { grid-column: 1 / -1; }
+.flag.full .v { font-size: 15px; line-height: 22px; }
+
+.alarm {
+  display: flex; gap: 9px; align-items: flex-start; border-radius: 8px; padding: 9px 11px;
+  font-size: 13px; line-height: 18px; margin-bottom: 12px;
+  background: color-mix(in srgb, var(--fail) 10%, transparent);
+  border: 1px solid color-mix(in srgb, var(--fail) 45%, transparent);
+}
+.alarm .ic { color: var(--fail); font-weight: 700; flex: none; }
+.alarm b { color: var(--text); }
+.calm {
+  display: flex; gap: 9px; align-items: flex-start; border-radius: 8px; padding: 9px 11px;
+  font-size: 13px; line-height: 18px; margin-bottom: 12px;
+  background: var(--surface-2); border: 1px solid var(--border); color: var(--text-2);
+}
+.calm .ic { color: var(--ok); font-weight: 700; flex: none; }
+.conclusion {
+  font-size: 14px; line-height: 21px; color: var(--text-2);
+  border-left: 3px solid var(--brand-600); padding: 2px 0 2px 12px;
+}
+.badge {
+  display: inline-block; font-size: 11px; line-height: 16px; font-weight: 600; padding: 1px 7px;
+  border-radius: 999px; background: var(--brand-100); color: var(--brand-700);
+}
+:root[data-theme="dark"] .badge { color: var(--brand-500); }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .badge { color: var(--brand-500); } }
+
+/* ---------- таблицы ---------- */
+.tbl-wrap { overflow-x: auto; }
+table { border-collapse: collapse; width: 100%; font-size: 14px; }
+th, td { text-align: right; padding: 9px 10px; border-bottom: 1px solid var(--border); white-space: nowrap; }
+th:first-child, td:first-child { text-align: left; }
+thead th {
+  font-size: 11px; line-height: 14px; font-weight: 600; letter-spacing: .04em;
+  text-transform: uppercase; color: var(--text-muted); white-space: normal;
+}
+tbody td { font-variant-numeric: tabular-nums; }
+tbody tr:last-child td { border-bottom: 0; }
+td .u { color: var(--text-muted); font-size: 12px; }
+
+details { margin-top: 10px; }
+summary { cursor: pointer; font-size: 13px; color: var(--text-2); }
+summary:hover { color: var(--link); }
+
+/* ---------- блок доверия ---------- */
+.trust-grid { display: grid; grid-template-columns: minmax(0, 1fr) 300px; gap: 16px; align-items: start; }
+@media (max-width: 1040px) { .trust-grid { grid-template-columns: minmax(0, 1fr); } }
+.metric { border-bottom: 1px solid var(--border); padding: 9px 0; }
+.metric:last-child { border-bottom: 0; }
+.metric .k { font-size: 12px; color: var(--text-muted); }
+.metric .v { font-size: 22px; line-height: 28px; font-weight: 600; font-variant-numeric: tabular-nums; }
+.metric .v small { font-size: 13px; font-weight: 400; color: var(--text-muted); }
+.limits { font-size: 13px; line-height: 20px; color: var(--text-2); margin: 0; padding-left: 18px; columns: 2; column-gap: 32px; }
+.limits li { break-inside: avoid; }
+.limits-box { border-top: 1px solid var(--border); padding-top: 14px !important; }
+@media (max-width: 760px) { .limits { columns: 1; } }
+.limits li { margin-bottom: 6px; }
+
+footer { border-top: 1px solid var(--border); padding: 20px 0 40px; color: var(--text-muted); font-size: 13px; }
+footer .wrap { display: flex; gap: 16px; flex-wrap: wrap; justify-content: space-between; }
+.note { font-size: 12px; line-height: 18px; color: var(--text-muted); margin-top: 8px; }
+.copied { color: var(--ok); font-size: 13px; margin-left: 10px; }
+@media (max-width: 560px) {
+  .flags { grid-template-columns: 1fr; }
+  h2 { font-size: 19px; }
+}
 </style>
 </head>
 <body>
-<div class="wrap">
 
-  <header class="top">
-    <p class="eyebrow">HackAlem AI 2026 · трек «Энергетика» · кейс Самрук-Казына</p>
-    <h1>WindAgent — Agentic AI для прогнозирования выработки ВЭС</h1>
-    <p class="lede">Почасовой прогноз выработки двух турбин ветроэлектростанции на 24–48 часов вперёд. Команда Technokod.</p>
-    <ul class="chips">
-      <li class="chip">Горизонт 24–48 ч, шаг 1 час</li>
-      <li class="chip">Тест: февраль 2026, 28 выпусков</li>
-      <li class="chip">nMAE 14.31 % на сутки</li>
-      <li class="chip">Оркестрация через function calling</li>
-    </ul>
-    <nav class="links">
+<header class="topbar">
+  <div class="wrap">
+    <a class="brand" href="./">
+      <img class="mk-light" src="demo/mark.svg" alt="" width="32" height="32">
+      <img class="mk-dark" src="demo/mark-dark.svg" alt="" width="32" height="32">
+      <span style="display:flex;flex-direction:column;line-height:1.2">
+        <b>WindAgent</b>
+        <span>прогноз выработки ВЭС</span>
+      </span>
+    </a>
+    <nav class="topnav">
+      <a href="about.html">Как это устроено</a>
       <a href="https://github.com/BAITC-Hacks/hack-c63c1350-technokod">Репозиторий</a>
-      <a href="https://github.com/BAITC-Hacks/hack-c63c1350-technokod#readme">README</a>
-      <a href="https://github.com/BAITC-Hacks/hack-c63c1350-technokod/blob/main/docs/architecture.md">Архитектура</a>
-      <a href="https://github.com/BAITC-Hacks/hack-c63c1350-technokod/blob/main/docs/agent-design.md">Устройство агента</a>
-      <a href="https://github.com/BAITC-Hacks/hack-c63c1350-technokod/blob/main/docs/validation.md">Протокол валидации</a>
+      <button class="iconbtn" id="theme" type="button" aria-label="Переключить тему">Тема</button>
     </nav>
-  </header>
+  </div>
+</header>
 
-  <section id="task">
-    <h2>Задача и решение</h2>
-    <p class="sub">Две турбины стоят в 400 метрах друг от друга в Шелекском ветровом коридоре Алматинской области. Требуется почасовой прогноз их выработки на 24–48 часов вперёд для суточной заявки на рынок и планирования резервов.</p>
-    <p>Ключевое требование кейса: для каждой даты выпуска разрешено использовать только тот прогноз погоды, который был доступен именно на этот момент, а не фактические значения, ставшие известными позже. Решение берёт архивные выпуски прогноза Open-Meteo Previous Runs: часы 1–24 горизонта из прогноза, выпущенного за сутки, часы 25–48 — из выпущенного за двое суток.</p>
-    <p>Агент проходит полный цикл на каждую дату: получает прогноз погоды, готовит признаки, запускает модель выработки, анализирует результат, сравнивает его с предыдущим выпуском и пересчитывает прогноз, если входные данные обновились. Порядок вызова инструментов выбирает языковая модель через function calling; без ключа провайдера тот же цикл выполняет детерминированный планировщик, поэтому числовой результат не зависит от доступности внешнего сервиса.</p>
-  </section>
+<main class="wrap">
 
-  <section id="forecast">
-    <h2>Прогноз на февраль 2026</h2>
-    <p class="sub">Результат 28 последовательных выпусков: на каждый час февраля взят самый свежий доступный прогноз. Значения — нормированная мощность, доля от номинала турбины.</p>
-
-    <div class="filters" role="group" aria-label="Параметры отображения графика">
-      <div class="filter-group">
-        <span class="filter-label" id="lbl-horizon">Горизонт</span>
-        <div class="seg" role="group" aria-labelledby="lbl-horizon" id="seg-lead">
-          <button type="button" data-lead="1" aria-pressed="true">Прогноз на сутки</button>
-          <button type="button" data-lead="2" aria-pressed="false">На двое суток</button>
+  <!-- 1. Шапка: что за выпуск и можно ли ему верить как «прогнозу на тот момент» -->
+  <section class="card controls" aria-label="Параметры выпуска">
+    <div class="ctl-row">
+      <div class="field">
+        <label for="issue">Дата выпуска прогноза</label>
+        <div class="stepper">
+          <button type="button" id="prev" aria-label="Предыдущий выпуск">‹</button>
+          <select id="issue"></select>
+          <button type="button" id="next" aria-label="Следующий выпуск">›</button>
         </div>
       </div>
-      <div class="filter-group">
-        <span class="filter-label" id="lbl-period">Период</span>
-        <div class="seg" role="group" aria-labelledby="lbl-period" id="seg-range">
-          <button type="button" data-from="0" data-to="672" aria-pressed="true">Весь февраль</button>
-          <button type="button" data-from="0" data-to="168" aria-pressed="false">1–7</button>
-          <button type="button" data-from="168" data-to="336" aria-pressed="false">8–14</button>
-          <button type="button" data-from="336" data-to="504" aria-pressed="false">15–21</button>
-          <button type="button" data-from="504" data-to="672" aria-pressed="false">22–28</button>
+      <div class="field">
+        <span class="lbl" id="lbl-hz">Горизонт</span>
+        <div class="seg" id="seg-hz" role="group" aria-labelledby="lbl-hz">
+          <button type="button" data-h="24">24 часа</button>
+          <button type="button" data-h="48" aria-pressed="true">48 часов</button>
+        </div>
+      </div>
+      <div class="field">
+        <span class="lbl" id="lbl-mode">Режим агента</span>
+        <div class="seg" id="seg-mode" role="group" aria-labelledby="lbl-mode">
+          <button type="button" data-m="det" aria-pressed="true">Детерминированный</button>
+          <button type="button" data-m="llm">LLM-оркестрация</button>
+        </div>
+      </div>
+      <div class="field">
+        <span class="lbl" id="lbl-mw">Номинал турбины</span>
+        <div class="seg" id="seg-mw" role="group" aria-labelledby="lbl-mw">
+          <button type="button" data-p="0">—</button>
+          <button type="button" data-p="2.5" aria-pressed="true">2,5 МВт</button>
+          <button type="button" data-p="3">3,0</button>
+          <button type="button" data-p="3.5">3,5</button>
         </div>
       </div>
     </div>
+    <div class="meta">
+      <div id="m-source"></div>
+      <div id="m-model"></div>
+      <div id="m-mode-note"></div>
+    </div>
+  </section>
 
+  <!-- 2 и 3. Главный график и панель агента -->
+  <section class="grid-main">
+   <div class="col-left">
     <div class="card">
-      <div class="chart-wrap">
-        <div class="chart-scroll">
-          <svg class="chart" id="chart" viewBox="0 0 960 380" role="img" tabindex="0"
-               aria-label="Почасовой прогноз выработки двух турбин за февраль 2026"></svg>
-        </div>
-        <div class="tip" id="tip" role="status" aria-live="polite"></div>
+      <div class="card-head">
+        <h2 id="chart-title">Прогноз выработки</h2>
+        <span class="sub" id="chart-sub"></span>
       </div>
       <div class="legend">
-        <span class="legend-item"><span class="key-line" style="background: var(--s1)"></span> Турбина 1</span>
-        <span class="legend-item"><span class="key-line" style="background: var(--s2)"></span> Турбина 2</span>
-        <span class="legend-item" id="band-key"><span class="key-band" style="background: var(--s1); opacity: .18"></span> Интервал P10–P90, турбина 1</span>
+        <span><i class="key farm"></i> станция, прогноз</span>
+        <span><i class="key band"></i> коридор P10–P90</span>
+        <span><i class="key t1"></i> турбина 1</span>
+        <span><i class="key t2"></i> турбина 2</span>
+        <span><i class="key prev"></i> вчерашний выпуск</span>
       </div>
-      <p class="note" id="chart-note"></p>
-
-      <details>
-        <summary>Показать таблицу по суткам</summary>
-        <div class="table-scroll">
-          <table id="daily-table">
-            <thead>
-              <tr><th>Сутки</th><th>Средняя Т1</th><th>Средняя Т2</th><th>Максимум Т1</th><th>Минимум Т1</th><th>Выработка Т1, норм·ч</th></tr>
-            </thead>
-            <tbody></tbody>
-          </table>
+      <div class="card-body">
+        <div class="chart-box" id="box-main">
+          <svg class="chart" id="svg-main" viewBox="0 0 1000 380" preserveAspectRatio="xMidYMid meet"
+               role="img" tabindex="0" aria-label="Почасовой прогноз выработки станции на горизонт прогноза с коридором неопределённости"></svg>
+          <div class="tip" id="tip-main"></div>
         </div>
-        <p class="note">Полный почасовой ряд — в файле <a href="https://github.com/BAITC-Hacks/hack-c63c1350-technokod/blob/main/outputs/forecast_feb2026.csv"><code>outputs/forecast_feb2026.csv</code></a> репозитория: 672 строки, по строке на каждый час февраля.</p>
-      </details>
-    </div>
-  </section>
-
-  <section id="metrics">
-    <h2>Точность на честной валидации</h2>
-    <p class="sub">Модель обучена на данных до 31 декабря 2025 года и проверена на январе 2026: 30 последовательных выпусков по 48 часов, каждый — по прогнозу погоды, доступному накануне. Факт погоды не использовался ни в обучении, ни в проверке.</p>
-
-    <div class="tiles">
-      <div class="tile">
-        <div class="t-label">nMAE, горизонт 24 ч</div>
-        <div class="t-value">14.31 %</div>
-        <div class="t-hint">турбина 1; турбина 2 — 14.55 %</div>
-      </div>
-      <div class="tile">
-        <div class="t-label">nMAE, горизонт 48 ч</div>
-        <div class="t-value">16.33 %</div>
-        <div class="t-hint">турбина 1; турбина 2 — 16.66 %</div>
-      </div>
-      <div class="tile">
-        <div class="t-label">Покрытие P10–P90</div>
-        <div class="t-value">79.4 %</div>
-        <div class="t-hint">на сутки; на двое суток — 79.7 %</div>
-      </div>
-      <div class="tile">
-        <div class="t-label">Лучше персистентности</div>
-        <div class="t-value" style="color: var(--good)">на 58–60 %</div>
-        <div class="t-hint">по MAE, горизонт 24 ч</div>
+        <p class="note" id="mw-note"></p>
+        <details>
+          <summary>Таблица значений по часам</summary>
+          <div class="tbl-wrap"><table id="tbl-hours"></table></div>
+        </details>
       </div>
     </div>
 
-    <h3>Ошибка по турбинам и горизонтам</h3>
-    <div class="table-scroll">
-      <table>
-        <thead>
-          <tr><th>Турбина</th><th>Горизонт</th><th>MAE</th><th>RMSE</th><th>nMAE</th></tr>
-        </thead>
-        <tbody>
-          <tr><td>Турбина 1</td><td>24 ч</td><td>0.1431</td><td>0.2015</td><td>14.31 %</td></tr>
-          <tr><td>Турбина 1</td><td>48 ч</td><td>0.1633</td><td>0.2296</td><td>16.33 %</td></tr>
-          <tr><td>Турбина 2</td><td>24 ч</td><td>0.1455</td><td>0.2041</td><td>14.55 %</td></tr>
-          <tr><td>Турбина 2</td><td>48 ч</td><td>0.1666</td><td>0.2316</td><td>16.66 %</td></tr>
-        </tbody>
-      </table>
-    </div>
+      <div class="card bid-card">
+        <div class="card-head">
+          <h2>Сводка для заявки</h2>
+          <span class="sub">
+            <button class="iconbtn" type="button" id="copy">Скопировать таблицу</button>
+            <span class="copied" id="copied" hidden>скопировано</span>
+          </span>
+        </div>
+        <div class="card-body">
+          <div class="tbl-wrap"><table id="tbl-bid"></table></div>
+          <p class="note">Энергия — сумма часовых значений прогноза по станции из двух турбин. «Энергия в границах P10–P90» — та же сумма, взятая по нижней и верхней границе коридора: это диапазон, в который выработка за сутки попадает с вероятностью около 80 %. «Мощность, мин…макс коридора» — самый низкий P10 и самый высокий P90 внутри суток. Худший час — час с наименьшим прогнозом.</p>
+        </div>
+      </div>
+   </div>
 
-    <h3>Сравнение с эталонами</h3>
-    <p class="sub">MAE на январе 2026, горизонт 24 часа. Чем меньше, тем лучше.</p>
-    <div class="table-scroll">
-      <table>
-        <thead>
-          <tr><th>Метод</th><th>Турбина 1</th><th>Турбина 2</th></tr>
-        </thead>
-        <tbody>
-          <tr><td class="lead">Модель WindAgent</td><td class="lead">0.1431</td><td class="lead">0.1455</td></tr>
-          <tr><td>Климатология по часу суток</td><td>0.3003</td><td>0.3007</td></tr>
-          <tr><td>Константа — среднее по истории</td><td>0.3010</td><td>0.3017</td></tr>
-          <tr><td>Персистентность</td><td>0.3568</td><td>0.3463</td></tr>
-        </tbody>
-      </table>
-    </div>
-    <p class="note">Модель точнее персистентности на 58–60 % и климатологии на 52 %.</p>
+    <aside class="card agent-panel" aria-label="Решения агента">
+      <div class="card-head">
+        <h2>Что сделал агент</h2>
+        <span class="sub" id="agent-mode"></span>
+      </div>
+      <div class="card-body">
+        <ol class="trace" id="trace"></ol>
+        <div id="alarm"></div>
+        <div class="flags" id="flags"></div>
+        <div class="conclusion" id="conclusion"></div>
+      </div>
+    </aside>
   </section>
 
-  <section id="agent">
-    <h2>Как работает агент</h2>
-    <p class="sub">Пять инструментов, между которыми агент выбирает сам. Каждый выпуск сохраняет журнал с полной трассой вызовов — по нему любое решение агента можно разобрать постфактум.</p>
-
-    <div class="tools-grid">
-      <div class="tool-card"><span class="tool">get_weather</span><span class="d">Архивный прогноз погоды, доступный на дату выпуска</span></div>
-      <div class="tool-card"><span class="tool">prepare_and_predict</span><span class="d">Признаки и расчёт выработки по обеим турбинам</span></div>
-      <div class="tool-card"><span class="tool">analyze</span><span class="d">Штиль, номинал, шторм, расхождение с прошлым выпуском</span></div>
-      <div class="tool-card"><span class="tool">recalculate</span><span class="d">Повторный расчёт и буревая защита турбины</span></div>
-      <div class="tool-card"><span class="tool">save_forecast</span><span class="d">Запись выпуска и журнала действий</span></div>
+  <!-- 5. Блок доверия -->
+  <section class="card">
+    <div class="card-head">
+      <h2>Насколько этому верить</h2>
+      <span class="sub">январь 2026, прогноз на сутки вперёд против факта</span>
     </div>
-
-    <h3>Реальная трасса выпуска от 15 февраля 2026</h3>
-    <p class="sub">Журнал <code>outputs/agent_logs_llm/2026-02-15.json</code>, режим с живой оркестрацией: порядок инструментов выбрала модель.</p>
-    <div class="card">
-      <ol class="trace">
-        <li>
-          <span class="tool">get_weather</span>
-          <div class="trace-body">48 часов прогноза на 16–17 февраля: 24 часа из выпуска за сутки, 24 из выпуска за двое суток. Ветер на 100 м от 3.4 до 7.7 м/с при среднем 5.9, температура от 0.4 до 9.6 °C.</div>
-        </li>
-        <li>
-          <span class="tool">prepare_and_predict</span>
-          <div class="trace-body">96 строк — 48 часов на каждую из двух турбин. Средний коэффициент использования 0.379 и 0.370, ожидаемая выработка 18.2 и 17.7 норм·ч.</div>
-        </li>
-        <li class="hot">
-          <span class="tool">analyze</span>
-          <div class="trace-body">Штилевых, номинальных и штормовых часов нет. Расхождение с выпуском предыдущего дня на пересекающихся 24 часах: <strong>0.164 в среднем</strong> при пороге пересчёта 0.15, максимум 0.441 → <code>needs_recalculation: true</code>.</div>
-        </li>
-        <li>
-          <span class="tool">prepare_and_predict</span>
-          <div class="trace-body">Модель самостоятельно пересчитала прогноз на обновлённых данных перед вызовом пересчёта.</div>
-        </li>
-        <li class="hot">
-          <span class="tool">recalculate</span>
-          <div class="trace-body">Причина в журнале: <code>input_change_vs_previous_issue=0.164 exceeds update_threshold=0.15</code>. Источник прогноза опрошен заново, буревая защита не сработала — штормовых часов нет, обнулённых строк 0.</div>
-        </li>
-        <li>
-          <span class="tool">save_forecast</span>
-          <div class="trace-body">Выпуск сохранён: <code>outputs/forecasts/2026-02-15.csv</code>, 96 строк.</div>
-        </li>
-      </ol>
-      <blockquote class="quote">«Прогноз выпущен на 48 часов для турбин 1 и 2. Ожидаемая выработка: турбина 1 — 18.2 нормо-часа, турбина 2 — 17.7 нормо-часа; средний коэффициент использования — 0.379 и 0.370 соответственно. Рисков штиля и шторма по анализу не выявлено, номинальных часов тоже нет. Относительно прошлого выпуска входные данные заметно изменились, поэтому потребовался пересчёт; после пересчёта буревая защита не сработала.»</blockquote>
-      <p class="note">Заключение записано языковой моделью и сохранено в журнале выпуска дословно.</p>
+    <div class="trust-grid">
+      <div>
+        <div class="legend">
+          <span><i class="key fact"></i> факт выработки</span>
+          <span><i class="key farm"></i> прогноз, выпущенный накануне</span>
+        </div>
+        <div class="card-body" style="padding-top:0">
+          <div class="chart-box" id="box-val">
+            <svg class="chart" id="svg-val" viewBox="0 0 1000 260" preserveAspectRatio="xMidYMid meet"
+                 role="img" tabindex="0" aria-label="Факт выработки станции против прогноза на сутки вперёд, январь 2026"></svg>
+            <div class="tip" id="tip-val"></div>
+          </div>
+          <p class="note" id="val-note"></p>
+          <details>
+            <summary>Таблица по суткам: факт и прогноз</summary>
+            <div class="tbl-wrap"><table id="tbl-val"></table></div>
+          </details>
+        </div>
+      </div>
+      <div class="card-body" style="padding-top:0">
+        <div id="metrics"></div>
+      </div>
     </div>
-    <p class="note">За весь тестовый период агент выполнил пересчёт в четырёх выпусках из 28: 6, 15, 21 и 24 февраля.</p>
-  </section>
-
-  <section id="verify">
-    <h2>Проверяемость</h2>
-    <p class="sub">Решение проверяется на чужой машине без сети и без ключей: кэш архивных прогнозов погоды лежит в репозитории.</p>
-    <ul class="plain">
-      <li>Контрольный сценарий одной командой: <code>bash scripts/demo.sh</code> или <code>powershell scripts/demo.ps1</code>. На обученных моделях проходит за 20–30 секунд, на свежем клоне — 38 секунд вместе с обучением.</li>
-      <li>Шесть автотестов: часовая агрегация, сборка признаков, честность источника прогноза, выпуск агента, отбраковка неверной даты.</li>
-      <li>Сценарий останавливается на первой ошибке и возвращает ненулевой код, поэтому «зелёный» прогон нельзя получить на сломанном коде.</li>
-      <li>Живая оркестрация языковой моделью — необязательный седьмой шаг: при заданном ключе выполняется, без ключа пропускается с явным сообщением.</li>
-    </ul>
-    <div class="callout">
-      Развёрнутого промышленного сервиса у решения нет, и эта страница им не является: она показывает результат работы агента на тестовом периоде. Исполняемое решение запускается из репозитория — интерфейс командной строки и HTTP-сервис на FastAPI описаны в README.
+    <div class="card-body limits-box">
+      <h3 style="margin:0 0 8px">Ограничения</h3>
+      <ul class="limits">
+          <li>Архив прогнозов начинается с 16.02.2024, поэтому обучение идёт на 23 месяцах, а не на всей истории с марта 2023 года.</li>
+          <li>Факт выработки за февраль 2026 участникам не выдан, качество на тесте не измерялось. Все метрики относятся к январю 2026 и получены по тому же протоколу «прогноз как в прошлом».</li>
+          <li>Потолок точности задаёт сам прогноз погоды: на фактическом ветре ошибка модели турбины 0.032 MAE против нынешних 0.143.</li>
+          <li>Кривая мощности не учитывает плановые остановы и ограничения диспетчера: в выданных данных нет журнала простоев.</li>
+        <li>Коридор P10–P90 построен на остатках января 2026 и измерен на том же месяце, на новых данных требует перекалибровки.</li>
+        <li>Развёрнутого промышленного сервиса у решения нет: эта страница показывает результат работы агента на тестовом периоде, а исполняемое решение запускается из репозитория.</li>
+      </ul>
     </div>
   </section>
+</main>
 
-  <footer>
-    Команда Technokod · HackAlem AI 2026 · кейс «Agentic AI для прогнозирования выработки ВЭС», Самрук-Казына.
-    Источник погоды — Open-Meteo Previous Runs API. Данные выработки предоставлены организатором.
-  </footer>
-</div>
+<footer>
+  <div class="wrap">
+    <span>WindAgent — команда Technokod, HackAlem AI 2026, кейс Самрук-Казына</span>
+    <span id="built"></span>
+  </div>
+</footer>
 
-<script src="demo/forecast-feb2026.js"></script>
+<script src="demo/dashboard-data.js"></script>
+<script src="demo/validation-data.js"></script>
 <script>
 (function () {
   "use strict";
-  var D = window.FEB_DATA;
-  var svg = document.getElementById("chart");
-  var tip = document.getElementById("tip");
-  var note = document.getElementById("chart-note");
-  var bandKey = document.getElementById("band-key");
-  var tbody = document.querySelector("#daily-table tbody");
-  var NS = "http://www.w3.org/2000/svg";
+  var D = window.DASH, V = window.VALID;
+  var $ = function (id) { return document.getElementById(id); };
+  var SVGNS = "http://www.w3.org/2000/svg";
 
-  var W = 960, H = 380, ML = 52, MR = 18, MT = 14, MB = 44;
-  var PW = W - ML - MR, PH = H - MT - MB;
+  var state = { i: 0, hz: 48, mode: "det", mw: 2.5 };
 
-  var state = { lead: 1, from: 0, to: D.hours, cursor: null };
-  var start = new Date(D.start);
-
-  function at(i) { return new Date(start.getTime() + i * 3600000); }
-  function p2(n) { return n < 10 ? "0" + n : "" + n; }
-  function dayLabel(d) { return p2(d.getDate()) + "." + p2(d.getMonth() + 1); }
-  function fullLabel(d) { return p2(d.getDate()) + "." + p2(d.getMonth() + 1) + ", " + p2(d.getHours()) + ":00"; }
-  function fmt(v) { return v === null || v === undefined ? "—" : v.toFixed(3); }
-
-  function series() {
-    // интервал рисуем только на недельном масштабе: на 672 часах полоса сливается в заливку
-    var weekly = (state.to - state.from) <= 168;
-    return state.lead === 1
-      ? { a: D.t1l1, b: D.t2l1, band: weekly }
-      : { a: D.t1l2, b: D.t2l2, band: false };
-  }
-  function xAt(i) { var n = state.to - state.from; return ML + (n === 1 ? 0 : (i - state.from) * PW / (n - 1)); }
-  function yAt(v) { return MT + (1 - v) * PH; }
-
+  /* ---------- общие помощники ---------- */
   function el(name, attrs, text) {
-    var e = document.createElementNS(NS, name);
-    for (var k in attrs) if (attrs[k] !== null) e.setAttribute(k, attrs[k]);
-    if (text !== undefined) e.textContent = text;
-    return e;
+    var n = document.createElementNS(SVGNS, name);
+    for (var k in attrs) if (attrs[k] !== null && attrs[k] !== undefined) n.setAttribute(k, attrs[k]);
+    if (text !== undefined) n.textContent = text;
+    return n;
   }
+  function clear(node) { while (node.firstChild) node.removeChild(node.firstChild); }
+  function n2(v) { return v < 10 ? "0" + v : "" + v; }
+  function hhmm(s) { return s.slice(11, 16); }
+  function dmy(s) { return s.slice(8, 10) + "." + s.slice(5, 7); }
+  function f2(v) { return v === null || v === undefined ? "—" : v.toFixed(2); }
+  function f3(v) { return v === null || v === undefined ? "—" : v.toFixed(3); }
+  function ru(v, d) { return v === null || v === undefined ? "—" : v.toFixed(d === undefined ? 1 : d).replace(".", ","); }
+  /* мощность станции в МВт: доля номинала × две турбины × номинал одной */
+  function mw(frac) { return state.mw ? frac * 2 * state.mw : null; }
 
-  function linePath(arr) {
-    var d = "", pen = false;
-    for (var i = state.from; i < state.to; i++) {
-      var v = arr[i];
-      if (v === null || v === undefined) { pen = false; continue; }
-      d += (pen ? "L" : "M") + xAt(i).toFixed(1) + " " + yAt(v).toFixed(1) + " ";
-      pen = true;
+  function issue() { return D.issues[state.i]; }
+  function agentLog() {
+    var it = issue();
+    return state.mode === "llm" && it.agent_llm ? it.agent_llm : it.agent;
+  }
+  function span() { return state.hz === 24 ? 24 : 48; }
+
+  /* ---------- построение путей ---------- */
+  function pathFrom(xs, ys) {
+    var d = "", open = false;
+    for (var i = 0; i < ys.length; i++) {
+      if (ys[i] === null || ys[i] === undefined) { open = false; continue; }
+      d += (open ? "L" : "M") + xs[i].toFixed(1) + " " + ys[i].toFixed(1) + " ";
+      open = true;
     }
     return d.trim();
   }
-
-  function bandPath(lo, hi) {
-    var up = "", down = [];
-    for (var i = state.from; i < state.to; i++) {
+  function bandFrom(xs, lo, hi) {
+    var up = "", down = [], any = false;
+    for (var i = 0; i < lo.length; i++) {
       if (lo[i] === null || hi[i] === null) continue;
-      up += (up ? "L" : "M") + xAt(i).toFixed(1) + " " + yAt(hi[i]).toFixed(1) + " ";
-      down.push(xAt(i).toFixed(1) + " " + yAt(lo[i]).toFixed(1));
+      any = true;
+      up += (up ? "L" : "M") + xs[i].toFixed(1) + " " + hi[i].toFixed(1) + " ";
+      down.push(xs[i].toFixed(1) + " " + lo[i].toFixed(1));
     }
-    if (!up) return "";
+    if (!any) return "";
     down.reverse();
-    return up + "L" + down.join("L") + " Z";
+    return up + "L" + down.join("L") + "Z";
   }
 
-  function ticksX() {
-    var n = state.to - state.from, out = [];
-    var stepH = n <= 180 ? 24 : 48;
-    for (var i = state.from; i < state.to; i++) {
-      var d = at(i);
-      if (d.getHours() === 0 && ((i - state.from) % stepH === 0)) out.push({ i: i, label: dayLabel(d) });
-    }
-    return out;
-  }
+  /* ================= главный график ================= */
+  var M = { l: 46, r: state.mw ? 54 : 16, t: 14, b: 30 }, CW = 1000, CH = 380;
+  var mainGeo = null;
 
-  function render() {
-    while (svg.firstChild) svg.removeChild(svg.firstChild);
-    var s = series();
+  function drawMain() {
+    var svg = $("svg-main"), it = issue(), n = span();
+    clear(svg);
+    M.r = state.mw ? 56 : 18;
+    var PW = CW - M.l - M.r, PH = CH - M.t - M.b;
+    var xs = [], i;
+    for (i = 0; i < n; i++) xs.push(M.l + (n === 1 ? 0 : i * PW / (n - 1)));
+    var yAt = function (v) { return M.t + (1 - v) * PH; };
+    mainGeo = { xs: xs, n: n, yAt: yAt, PW: PW, PH: PH };
 
-    // горизонтальная сетка и подписи оси Y
+    // сетка и ось значений
     [0, 0.25, 0.5, 0.75, 1].forEach(function (v) {
-      svg.appendChild(el("line", { x1: ML, x2: W - MR, y1: yAt(v), y2: yAt(v),
-        stroke: v === 0 ? "var(--axis)" : "var(--grid)", "stroke-width": 1 }));
-      svg.appendChild(el("text", { x: ML - 10, y: yAt(v) + 4, "text-anchor": "end",
-        fill: "var(--ink-muted)", "font-size": 12, "font-variant-numeric": "tabular-nums" }, v.toFixed(2)));
+      var y = yAt(v);
+      svg.appendChild(el("line", { x1: M.l, y1: y, x2: M.l + PW, y2: y, "class": "gridline" }));
+      svg.appendChild(el("text", { x: M.l - 8, y: y + 4, "class": "axis-text", "text-anchor": "end" }, v.toFixed(2).replace(".", ",")));
+      if (state.mw) {
+        svg.appendChild(el("text", { x: M.l + PW + 8, y: y + 4, "class": "axis-text right" }, ru(v * 2 * state.mw, 1)));
+      }
     });
 
-    // подписи оси X
-    ticksX().forEach(function (t) {
-      svg.appendChild(el("line", { x1: xAt(t.i), x2: xAt(t.i), y1: yAt(0), y2: yAt(0) + 5,
-        stroke: "var(--axis)", "stroke-width": 1 }));
-      svg.appendChild(el("text", { x: xAt(t.i), y: yAt(0) + 20, "text-anchor": "middle",
-        fill: "var(--ink-muted)", "font-size": 12, "font-variant-numeric": "tabular-nums" }, t.label));
+    // ось времени: каждые 6 часов
+    for (i = 0; i < n; i += 6) {
+      svg.appendChild(el("text", { x: xs[i], y: CH - 10, "class": "axis-text", "text-anchor": "middle" }, hhmm(it.ts[i])));
+    }
+    // граница суток: там, где лид меняется с 1 на 2
+    var brk = -1;
+    for (i = 1; i < n; i++) if (it.lead_day[i] !== it.lead_day[i - 1]) { brk = i; break; }
+    if (brk > 0) {
+      svg.appendChild(el("line", { x1: xs[brk], y1: M.t, x2: xs[brk], y2: M.t + PH, "class": "dayline" }));
+      svg.appendChild(el("text", { x: xs[brk] - 6, y: M.t + 12, "class": "daylabel", "text-anchor": "end" }, "сутки вперёд"));
+      svg.appendChild(el("text", { x: xs[brk] + 6, y: M.t + 12, "class": "daylabel" }, "двое суток"));
+    }
+
+    var cut = function (a) { return a.slice(0, n); };
+    var ysOf = function (arr) { return arr.map(function (v) { return v === null || v === undefined ? null : yAt(v); }); };
+
+    // коридор под линиями
+    var bp = bandFrom(xs, ysOf(cut(it.p10)), ysOf(cut(it.p90)));
+    if (bp) svg.appendChild(el("path", { d: bp, "class": "band-fill" }));
+
+    // вчерашний выпуск, затем турбины, затем станция поверх
+    svg.appendChild(el("path", { d: pathFrom(xs, ysOf(cut(it.prev_farm))), "class": "s-prev" }));
+    svg.appendChild(el("path", { d: pathFrom(xs, ysOf(cut(it.t1))), "class": "s-t1" }));
+    svg.appendChild(el("path", { d: pathFrom(xs, ysOf(cut(it.t2))), "class": "s-t2" }));
+    svg.appendChild(el("path", { d: pathFrom(xs, ysOf(cut(it.farm))), "class": "s-farm" }));
+
+    // прямая подпись станции у правого края
+    var last = null;
+    for (i = n - 1; i >= 0; i--) if (it.farm[i] !== null) { last = i; break; }
+    if (last !== null) {
+      svg.appendChild(el("circle", { cx: xs[last], cy: yAt(it.farm[last]), r: 4, "class": "dot farm" }));
+    }
+
+    // слой курсора
+    var cur = el("g", { id: "cursor", opacity: 0 });
+    cur.appendChild(el("line", { id: "cl", y1: M.t, y2: M.t + PH, "class": "cursor-line" }));
+    ["farm", "t1", "t2"].forEach(function (k) {
+      cur.appendChild(el("circle", { id: "cd-" + k, r: 4.5, "class": "dot " + k }));
     });
-    svg.appendChild(el("text", { x: ML, y: H - 8, fill: "var(--ink-muted)", "font-size": 11 }, "февраль 2026, местное время"));
+    svg.appendChild(cur);
 
-    // интервал неопределённости
-    if (s.band) {
-      var bp = bandPath(D.t1p10, D.t1p90);
-      if (bp) svg.appendChild(el("path", { d: bp, fill: "var(--s1)", "fill-opacity": 0.14, stroke: "none" }));
-    }
-
-    // линии серий
-    svg.appendChild(el("path", { d: linePath(s.b), fill: "none", stroke: "var(--s2)",
-      "stroke-width": 2, "stroke-linejoin": "round", "stroke-linecap": "round" }));
-    svg.appendChild(el("path", { d: linePath(s.a), fill: "none", stroke: "var(--s1)",
-      "stroke-width": 2, "stroke-linejoin": "round", "stroke-linecap": "round" }));
-
-    // прямая подпись одного экстремума: пик турбины 1 на выбранном отрезке
-    var peak = -1, peakI = -1;
-    for (var i = state.from; i < state.to; i++) {
-      var v = s.a[i];
-      if (v !== null && v !== undefined && v > peak) { peak = v; peakI = i; }
-    }
-    if (peakI >= 0) {
-      var px = xAt(peakI), py = yAt(peak);
-      svg.appendChild(el("circle", { cx: px, cy: py, r: 4, fill: "var(--s1)",
-        stroke: "var(--surface)", "stroke-width": 2 }));
-      var anchor = px > W - 200 ? "end" : "start";
-      var dx = anchor === "end" ? -10 : 10;
-      svg.appendChild(el("text", { x: px + dx, y: py - 10, "text-anchor": anchor,
-        fill: "var(--ink-2)", "font-size": 12 }, "пик " + peak.toFixed(2) + " · " + fullLabel(at(peakI))));
-    }
-
-    // слой наведения
-    var cross = el("line", { id: "cross", x1: 0, x2: 0, y1: MT, y2: yAt(0),
-      stroke: "var(--axis)", "stroke-width": 1, opacity: 0 });
-    svg.appendChild(cross);
-    var d1 = el("circle", { id: "d1", r: 4.5, fill: "var(--s1)", stroke: "var(--surface)", "stroke-width": 2, opacity: 0 });
-    var d2 = el("circle", { id: "d2", r: 4.5, fill: "var(--s2)", stroke: "var(--surface)", "stroke-width": 2, opacity: 0 });
-    svg.appendChild(d2); svg.appendChild(d1);
-    var hit = el("rect", { x: ML, y: MT, width: PW, height: PH, fill: "transparent", style: "cursor: crosshair" });
+    // прозрачная зона захвата
+    var hit = el("rect", { x: M.l, y: M.t, width: PW, height: PH, fill: "transparent", id: "hit" });
     svg.appendChild(hit);
-
-    hit.addEventListener("pointermove", onMove);
-    hit.addEventListener("pointerdown", onMove);
-    hit.addEventListener("pointerleave", hideCursor);
-
-    note.textContent = state.lead === 1
-      ? (s.band
-          ? "Показан прогноз, выпущенный за сутки до каждого часа, с интервалом неопределённости P10–P90 по турбине 1."
-          : "Показан прогноз, выпущенный за сутки до каждого часа. Интервал P10–P90 на масштабе месяца сливается в сплошную полосу, поэтому он показывается при выборе отдельной недели.")
-      : "Показан прогноз, выпущенный за двое суток. За 1 февраля его не существует: он потребовал бы выпуск от 30 января, поэтому линия начинается со 2 февраля. Интервал P10–P90 рассчитан для суточного горизонта и здесь не показан.";
-    bandKey.style.display = s.band ? "" : "none";
-
-    if (state.cursor !== null) showCursor(state.cursor);
-    renderTable();
   }
 
+  function cursorAt(idx) {
+    var it = issue(), g = mainGeo;
+    if (!g || idx < 0 || idx >= g.n) return;
+    var svg = $("svg-main"), cur = svg.querySelector("#cursor");
+    if (!cur) return;
+    cur.setAttribute("opacity", 1);
+    var x = g.xs[idx];
+    cur.querySelector("#cl").setAttribute("x1", x);
+    cur.querySelector("#cl").setAttribute("x2", x);
+    [["farm", it.farm], ["t1", it.t1], ["t2", it.t2]].forEach(function (p) {
+      var c = cur.querySelector("#cd-" + p[0]), v = p[1][idx];
+      if (v === null || v === undefined) { c.setAttribute("opacity", 0); return; }
+      c.setAttribute("opacity", 1);
+      c.setAttribute("cx", x); c.setAttribute("cy", g.yAt(v));
+    });
+
+    var tip = $("tip-main"), box = $("box-main");
+    var rows = "<div class='tt'>" + dmy(it.ts[idx]) + ", " + hhmm(it.ts[idx]) +
+      " <span style='color:var(--text-muted);font-weight:400'>·  лид " + it.lead_day[idx] + "</span></div>";
+    rows += row("var(--farm)", "станция", it.farm[idx], true);
+    rows += "<div class='tr' style='color:var(--text-muted)'><span>коридор</span><b>" +
+      f2(it.p10[idx]) + " – " + f2(it.p90[idx]) + "</b></div>";
+    rows += row("var(--series-1)", "турбина 1", it.t1[idx], false);
+    rows += row("var(--series-2)", "турбина 2", it.t2[idx], false);
+    if (it.prev_farm[idx] !== null && it.prev_farm[idx] !== undefined) {
+      rows += row("var(--ref)", "вчерашний выпуск", it.prev_farm[idx], false);
+    }
+    rows += "<div class='tr' style='color:var(--text-muted)'><span>ветер 100 м</span><b>" + ru(it.wind[idx], 1) + " м/с</b></div>";
+    tip.innerHTML = rows;
+
+    var rect = box.getBoundingClientRect(), scale = rect.width / CW;
+    var px = x * scale, w = tip.offsetWidth;
+    tip.style.left = Math.max(4, Math.min(px + 14, rect.width - w - 4)) + "px";
+    tip.style.top = "10px";
+    tip.style.opacity = 1;
+  }
+  function row(color, name, v, strong) {
+    if (v === null || v === undefined) return "";
+    var unit = state.mw ? " <span style='color:var(--text-muted);font-weight:400'>" + ru(mw(v), 1) + " МВт</span>" : "";
+    return "<div class='tr'><i class='sw' style='background:" + color + "'></i><span>" + name +
+      "</span><b" + (strong ? "" : " style='font-weight:500'") + ">" + f3(v) + unit + "</b></div>";
+  }
+  function hideCursor() {
+    var cur = $("svg-main").querySelector("#cursor");
+    if (cur) cur.setAttribute("opacity", 0);
+    $("tip-main").style.opacity = 0;
+  }
   function idxFromEvent(ev) {
-    var box = svg.getBoundingClientRect();
-    var x = (ev.clientX - box.left) * (W / box.width);
-    var n = state.to - state.from;
-    var rel = (x - ML) / PW * (n - 1);
-    var i = Math.round(rel) + state.from;
-    return Math.max(state.from, Math.min(state.to - 1, i));
+    var box = $("box-main"), rect = box.getBoundingClientRect(), g = mainGeo;
+    if (!g) return -1;
+    var x = (ev.clientX - rect.left) / (rect.width / CW);
+    var rel = (x - M.l) / g.PW * (g.n - 1);
+    return Math.max(0, Math.min(g.n - 1, Math.round(rel)));
   }
 
-  function onMove(ev) { showCursor(idxFromEvent(ev)); }
+  /* ================= панель агента ================= */
+  var TOOL_RU = {
+    get_weather: "получить прогноз погоды",
+    prepare_and_predict: "подготовить данные и рассчитать",
+    analyze: "проанализировать выпуск",
+    recalculate: "пересчитать",
+    save_forecast: "сохранить выпуск",
+    llm_fallback: "откат на детерминированный план"
+  };
+  function toolDetail(t) {
+    var r = t.result || {};
+    switch (t.tool) {
+      case "get_weather":
+        return r.hours + " ч, ветер 100 м " + ru(r.ws100_min, 1) + "–" + ru(r.ws100_max, 1) +
+          " м/с, сутки вперёд " + r.lead1_hours + " ч + двое суток " + r.lead2_hours + " ч";
+      case "prepare_and_predict":
+        return r.rows + " строк, КИУМ " + (r.mean_cf ? ru(r.mean_cf["1"] * 100, 1) + " % и " + ru(r.mean_cf["2"] * 100, 1) + " %" : "—");
+      case "analyze":
+        return "штиль " + r.calm_hours + " ч, номинал " + r.rated_hours + " ч, шторм " + r.storm_hours +
+          " ч; изменение " + (r.input_change_vs_previous_issue === null || r.input_change_vs_previous_issue === undefined
+            ? "нет прошлого выпуска" : ru(r.input_change_vs_previous_issue, 3) + " при пороге " + ru(r.update_threshold, 2));
+      case "recalculate":
+        return (r.reason || "") + "; штормовых часов " + r.storm_hours + ", обнулено строк " + r.rows_zeroed;
+      case "save_forecast":
+        return (r.path || "").replace(/\\/g, "/") + ", " + r.rows + " строк";
+      default:
+        return r.error ? String(r.error) : "";
+    }
+  }
 
-  function showCursor(i) {
-    state.cursor = i;
-    var s = series();
-    var cross = svg.querySelector("#cross"), d1 = svg.querySelector("#d1"), d2 = svg.querySelector("#d2");
-    if (!cross) return;
-    var x = xAt(i);
-    cross.setAttribute("x1", x); cross.setAttribute("x2", x); cross.setAttribute("opacity", 1);
-    var va = s.a[i], vb = s.b[i];
-    if (va !== null && va !== undefined) { d1.setAttribute("cx", x); d1.setAttribute("cy", yAt(va)); d1.setAttribute("opacity", 1); }
-    else d1.setAttribute("opacity", 0);
-    if (vb !== null && vb !== undefined) { d2.setAttribute("cx", x); d2.setAttribute("cy", yAt(vb)); d2.setAttribute("opacity", 1); }
-    else d2.setAttribute("opacity", 0);
+  function drawAgent() {
+    var it = issue(), log = agentLog();
+    $("agent-mode").innerHTML = log.llm_used
+      ? "<span class='badge'>порядок выбрала модель</span>"
+      : "<span class='badge'>детерминированный план</span>";
 
-    while (tip.firstChild) tip.removeChild(tip.firstChild);
-    var head = document.createElement("div");
-    head.className = "tip-x";
-    head.textContent = fullLabel(at(i));
-    tip.appendChild(head);
-    addTipRow(va, "var(--s1)", "Турбина 1");
-    addTipRow(vb, "var(--s2)", "Турбина 2");
-    if (state.lead === 1 && D.t1p10[i] !== null) {
-      var band = document.createElement("div");
-      band.className = "tip-x";
-      band.style.marginTop = "6px";
-      band.style.marginBottom = "0";
-      band.textContent = "P10–P90 Т1: " + fmt(D.t1p10[i]) + " … " + fmt(D.t1p90[i]);
-      tip.appendChild(band);
+    var ol = $("trace");
+    clear(ol);
+    log.trace.forEach(function (t, k) {
+      var li = document.createElement("li");
+      var warn = t.tool === "recalculate" || t.tool === "llm_fallback";
+      li.innerHTML = "<span class='step" + (warn ? " warn" : "") + "'>" + (k + 1) + "</span>" +
+        "<span><code>" + t.tool + "</code> — " + (TOOL_RU[t.tool] || "") +
+        "<span class='det'>" + toolDetail(t) + "</span></span>";
+      ol.appendChild(li);
+    });
+
+    var a = log.analysis || {};
+    var box = $("alarm");
+    if (log.recalculated) {
+      var rc = null;
+      log.trace.forEach(function (t) { if (t.tool === "recalculate") rc = t.result || {}; });
+      box.innerHTML = "<div class='alarm'><span class='ic'>●</span><span><b>Агент выполнил пересчёт.</b> " +
+        "Расхождение с прошлым выпуском " + ru(a.input_change_vs_previous_issue, 3) +
+        " превысило порог " + ru(a.update_threshold, 2) + ", решение принято по флагу <code>needs_recalculation</code>. " +
+        (rc && rc.rows_zeroed ? "Обнулено строк по буревой защите: " + rc.rows_zeroed + "." : "Штормовых часов нет, буревая защита не применялась.") +
+        "</span></div>";
+    } else {
+      box.innerHTML = "<div class='calm'><span class='ic'>✓</span><span>Пересчёт не потребовался: " +
+        (a.input_change_vs_previous_issue === null || a.input_change_vs_previous_issue === undefined
+          ? "прошлого выпуска нет, сравнивать не с чем."
+          : "расхождение с прошлым выпуском " + ru(a.input_change_vs_previous_issue, 3) + " при пороге " + ru(a.update_threshold, 2) + ".") +
+        "</span></div>";
     }
 
-    var box = svg.getBoundingClientRect();
-    var scale = box.width / W;
-    var left = x * scale + 14;
-    if (left > box.width - 190) left = x * scale - 190;
-    tip.style.left = Math.max(0, left) + "px";
-    tip.style.top = "12px";
+    var flags = $("flags");
+    flags.innerHTML =
+      f("Часов штиля", a.calm_hours, "ветер ниже 3 м/с") +
+      f("Часов на номинале", a.rated_hours, "ветер от 11,5 м/с") +
+      f("Штормовых часов", a.storm_hours, "ветер от 22 м/с") +
+      f("Разброс турбин", ru(a.turbine_spread_max, 3), "максимум за горизонт") +
+      "<div class='flag full'><div class='k'>Изменение относительно прошлого выпуска</div><div class='v'>" +
+      (a.input_change_vs_previous_issue === null || a.input_change_vs_previous_issue === undefined
+        ? "прошлого выпуска нет"
+        : ru(a.input_change_vs_previous_issue, 3) + " при пороге " + ru(a.update_threshold, 2) +
+          (a.input_update_vs_previous_issue ? " на " + a.input_update_vs_previous_issue.overlap_hours + " общих часах" : "")) +
+      "</div></div>";
+
+    $("conclusion").textContent = log.conclusion || "";
+  }
+  function f(k, v, hint) {
+    return "<div class='flag'><div class='k'>" + k + "</div><div class='v'>" + (v === null || v === undefined ? "—" : v) +
+      "</div><div class='k'>" + hint + "</div></div>";
+  }
+
+  /* ================= сводка для заявки ================= */
+  var bidRows = [];
+  function drawBid() {
+    var it = issue(), n = span(), t = $("tbl-bid");
+    var days = {};
+    for (var i = 0; i < n; i++) {
+      var key = it.ts[i].slice(0, 10);
+      if (!days[key]) days[key] = { key: key, sum: 0, sumLo: 0, sumHi: 0, lo: 1, hi: 0, min: 2, minAt: "", lead: it.lead_day[i], h: 0 };
+      var d = days[key];
+      d.sum += it.farm[i]; d.h++;
+      if (it.p10[i] !== null) { d.lo = Math.min(d.lo, it.p10[i]); d.sumLo += it.p10[i]; }
+      if (it.p90[i] !== null) { d.hi = Math.max(d.hi, it.p90[i]); d.sumHi += it.p90[i]; }
+      if (it.farm[i] < d.min) { d.min = it.farm[i]; d.minAt = hhmm(it.ts[i]); }
+    }
+    var keys = Object.keys(days);
+    var unit = state.mw ? " МВт·ч" : "";
+    var head = "<thead><tr><th>Сутки</th><th>Горизонт</th><th>Ожидаемая энергия</th><th>Энергия в границах P10–P90</th><th>Мощность, мин…макс коридора</th><th>Худший час</th></tr></thead><tbody>";
+    var body = "";
+    var eu = state.mw ? ", МВт·ч" : ", норм·ч";
+    bidRows = [["Сутки", "Горизонт", "Энергия" + eu, "Энергия P10" + eu, "Энергия P90" + eu,
+                "Мощность мин" + (state.mw ? ", МВт" : ", доля"),
+                "Мощность макс" + (state.mw ? ", МВт" : ", доля"), "Худший час"]];
+    keys.forEach(function (k) {
+      var d = days[k];
+      var energy = state.mw ? ru(d.sum * 2 * state.mw, 1) + unit : ru(d.sum, 1) + " норм·ч";
+      var eLo = state.mw ? d.sumLo * 2 * state.mw : d.sumLo;
+      var eHi = state.mw ? d.sumHi * 2 * state.mw : d.sumHi;
+      var eBand = ru(eLo, 1) + " … " + ru(eHi, 1) + (state.mw ? " МВт·ч" : " норм·ч");
+      var corridor = state.mw
+        ? ru(mw(d.lo), 1) + " … " + ru(mw(d.hi), 1) + " МВт"
+        : ru(d.lo, 2) + " … " + ru(d.hi, 2);
+      var worst = d.minAt + " — " + (state.mw ? ru(mw(d.min), 1) + " МВт" : ru(d.min, 2));
+      body += "<tr><td>" + dmy(k + " ") + " (" + d.h + " ч)</td><td>" +
+        (d.lead === 1 ? "сутки вперёд" : "двое суток") + "</td><td>" + energy +
+        "</td><td>" + eBand + "</td><td>" + corridor + "</td><td>" + worst + "</td></tr>";
+      bidRows.push([dmy(k + " "), d.lead === 1 ? "сутки вперёд" : "двое суток",
+        state.mw ? ru(d.sum * 2 * state.mw, 1) : ru(d.sum, 1), ru(eLo, 1), ru(eHi, 1),
+        ru(state.mw ? mw(d.lo) : d.lo, 2), ru(state.mw ? mw(d.hi) : d.hi, 2), worst]);
+    });
+    t.innerHTML = head + body + "</tbody>";
+  }
+
+  /* ================= таблица по часам ================= */
+  function drawHours() {
+    var it = issue(), n = span(), t = $("tbl-hours"), body = "";
+    for (var i = 0; i < n; i++) {
+      body += "<tr><td>" + dmy(it.ts[i]) + " " + hhmm(it.ts[i]) + "</td><td>" + f3(it.farm[i]) +
+        (state.mw ? " <span class='u'>" + ru(mw(it.farm[i]), 1) + " МВт</span>" : "") +
+        "</td><td>" + f2(it.p10[i]) + "</td><td>" + f2(it.p90[i]) +
+        "</td><td>" + f3(it.t1[i]) + "</td><td>" + f3(it.t2[i]) +
+        "</td><td>" + ru(it.wind[i], 1) + "</td></tr>";
+    }
+    t.innerHTML = "<thead><tr><th>Час</th><th>Станция</th><th>P10</th><th>P90</th><th>Турбина 1</th><th>Турбина 2</th><th>Ветер, м/с</th></tr></thead><tbody>" + body + "</tbody>";
+  }
+
+  /* ================= блок доверия ================= */
+  var VG = null;
+  function drawValidation() {
+    var svg = $("svg-val");
+    clear(svg);
+    var W = 1000, H = 260, m = { l: 46, r: 16, t: 12, b: 26 };
+    var PW = W - m.l - m.r, PH = H - m.t - m.b, n = V.ts.length;
+    var xs = [], i;
+    for (i = 0; i < n; i++) xs.push(m.l + i * PW / (n - 1));
+    var yAt = function (v) { return m.t + (1 - v) * PH; };
+    VG = { xs: xs, n: n, yAt: yAt, PW: PW, m: m, W: W };
+
+    [0, 0.5, 1].forEach(function (v) {
+      var y = yAt(v);
+      svg.appendChild(el("line", { x1: m.l, y1: y, x2: m.l + PW, y2: y, "class": "gridline" }));
+      svg.appendChild(el("text", { x: m.l - 8, y: y + 4, "class": "axis-text", "text-anchor": "end" }, v.toFixed(1).replace(".", ",")));
+    });
+    for (i = 0; i < n; i += 72) {
+      svg.appendChild(el("text", { x: xs[i], y: H - 8, "class": "axis-text", "text-anchor": "middle" }, dmy(V.ts[i])));
+    }
+    var ysOf = function (a) { return a.map(function (v) { return v === null ? null : yAt(v); }); };
+    svg.appendChild(el("path", { d: pathFrom(xs, ysOf(V.fact)), "class": "s-fact" }));
+    svg.appendChild(el("path", { d: pathFrom(xs, ysOf(V.pred)), "class": "s-farm", "stroke-width": 1.8 }));
+
+    var cur = el("g", { id: "vcursor", opacity: 0 });
+    cur.appendChild(el("line", { id: "vcl", y1: m.t, y2: m.t + PH, "class": "cursor-line" }));
+    cur.appendChild(el("circle", { id: "vd-fact", r: 4, "class": "dot fact" }));
+    cur.appendChild(el("circle", { id: "vd-pred", r: 4, "class": "dot farm" }));
+    svg.appendChild(cur);
+    svg.appendChild(el("rect", { x: m.l, y: m.t, width: PW, height: PH, fill: "transparent" }));
+
+    $("val-note").textContent = "Период: " + V.period + ", " + n +
+      " часов. Прогноз получен моделью, обученной только на данных до 31 декабря 2025 года, — той же, на которой посчитаны метрики. " +
+      "Факт используется исключительно для сравнения постфактум.";
+  }
+  function vCursor(idx) {
+    if (!VG || idx < 0 || idx >= VG.n) return;
+    var svg = $("svg-val"), cur = svg.querySelector("#vcursor");
+    if (!cur) return;
+    cur.setAttribute("opacity", 1);
+    var x = VG.xs[idx];
+    cur.querySelector("#vcl").setAttribute("x1", x);
+    cur.querySelector("#vcl").setAttribute("x2", x);
+    [["fact", V.fact], ["pred", V.pred]].forEach(function (p) {
+      var c = cur.querySelector("#vd-" + p[0]), v = p[1][idx];
+      if (v === null) { c.setAttribute("opacity", 0); return; }
+      c.setAttribute("opacity", 1);
+      c.setAttribute("cx", x); c.setAttribute("cy", VG.yAt(v));
+    });
+    var tip = $("tip-val"), box = $("box-val");
+    var err = (V.fact[idx] !== null && V.pred[idx] !== null) ? Math.abs(V.pred[idx] - V.fact[idx]) : null;
+    tip.innerHTML = "<div class='tt'>" + dmy(V.ts[idx]) + ", " + hhmm(V.ts[idx]) + "</div>" +
+      "<div class='tr'><i class='sw' style='background:var(--ref)'></i><span>факт</span><b>" + f3(V.fact[idx]) + "</b></div>" +
+      "<div class='tr'><i class='sw' style='background:var(--farm)'></i><span>прогноз</span><b>" + f3(V.pred[idx]) + "</b></div>" +
+      "<div class='tr' style='color:var(--text-muted)'><span>ошибка</span><b>" + f3(err) + "</b></div>";
+    var rect = box.getBoundingClientRect(), scale = rect.width / VG.W;
+    var px = x * scale, w = tip.offsetWidth;
+    tip.style.left = Math.max(4, Math.min(px + 14, rect.width - w - 4)) + "px";
+    tip.style.top = "6px";
     tip.style.opacity = 1;
   }
 
-  function addTipRow(v, color, name) {
-    var row = document.createElement("div");
-    row.className = "tip-row";
-    var key = document.createElement("span");
-    key.className = "key-line";
-    key.style.background = color;
-    var val = document.createElement("span");
-    val.className = "tip-val";
-    val.textContent = fmt(v);
-    var lab = document.createElement("span");
-    lab.textContent = name;
-    row.appendChild(key); row.appendChild(val); row.appendChild(lab);
-    tip.appendChild(row);
-  }
-
-  function hideCursor() {
-    state.cursor = null;
-    tip.style.opacity = 0;
-    var cross = svg.querySelector("#cross");
-    if (cross) cross.setAttribute("opacity", 0);
-    ["#d1", "#d2"].forEach(function (id) {
-      var e = svg.querySelector(id);
-      if (e) e.setAttribute("opacity", 0);
-    });
-  }
-
-  function renderTable() {
-    while (tbody.firstChild) tbody.removeChild(tbody.firstChild);
-    var s = series();
-    var days = {};
-    for (var i = state.from; i < state.to; i++) {
-      var key = dayLabel(at(i));
-      if (!days[key]) days[key] = { a: [], b: [] };
-      if (s.a[i] !== null && s.a[i] !== undefined) days[key].a.push(s.a[i]);
-      if (s.b[i] !== null && s.b[i] !== undefined) days[key].b.push(s.b[i]);
+  function drawMetrics() {
+    var m = D.model.metrics, c = D.model.coverage, box = $("metrics"), html = "";
+    function block(title, lead) {
+      var t1 = m.turbine_1[lead].blend, t2 = m.turbine_2[lead].blend;
+      return "<div class='metric'><div class='k'>" + title + "</div><div class='v'>" +
+        ru(t1.nmae_pct, 2) + " % <small>и</small> " + ru(t2.nmae_pct, 2) + " %</div>" +
+        "<div class='k'>nMAE турбины 1 и турбины 2, MAE " + f3(t1.mae) + " и " + f3(t2.mae) +
+        ", RMSE " + f3(t1.rmse) + " и " + f3(t2.rmse) + ", " + t1.n + " часов</div></div>";
     }
-    Object.keys(days).forEach(function (key) {
-      var d = days[key];
-      if (!d.a.length) return;
-      var mean = function (x) { return x.reduce(function (p, c) { return p + c; }, 0) / x.length; };
-      var sum = function (x) { return x.reduce(function (p, c) { return p + c; }, 0); };
-      var cells = [key, mean(d.a).toFixed(3), d.b.length ? mean(d.b).toFixed(3) : "—",
-                   Math.max.apply(null, d.a).toFixed(3), Math.min.apply(null, d.a).toFixed(3),
-                   sum(d.a).toFixed(1)];
-      var tr = document.createElement("tr");
-      cells.forEach(function (c) {
-        var td = document.createElement("td");
-        td.textContent = c;
-        tr.appendChild(td);
-      });
-      tbody.appendChild(tr);
-    });
+    html += block("Ошибка на сутки вперёд", "lead1");
+    html += block("Ошибка на двое суток", "lead2");
+    html += "<div class='metric'><div class='k'>Покрытие коридора P10–P90</div><div class='v'>" +
+      ru(c.turbine_1 * 100, 1) + " %</div><div class='k'>измерено на январе 2026 на тех же данных, где подобраны квантили, поэтому оценка оптимистична</div></div>";
+    html += "<div class='metric'><div class='k'>Объём обучения</div><div class='v'>" +
+      D.model.train_rows.turbine_1.toLocaleString("ru-RU") + "</div><div class='k'>часов факта на турбину 1</div></div>";
+    box.innerHTML = html;
   }
 
-  // переключатели
+  function drawValTable() {
+    var byDay = {}, i;
+    for (i = 0; i < V.ts.length; i++) {
+      var k = V.ts[i].slice(0, 10);
+      if (!byDay[k]) byDay[k] = { f: 0, p: 0, e: 0, n: 0 };
+      var d = byDay[k];
+      d.f += V.fact[i]; d.p += V.pred[i]; d.e += Math.abs(V.pred[i] - V.fact[i]); d.n++;
+    }
+    var body = "";
+    Object.keys(byDay).forEach(function (k) {
+      var d = byDay[k];
+      body += "<tr><td>" + dmy(k + " ") + "</td><td>" + f3(d.f / d.n) + "</td><td>" + f3(d.p / d.n) +
+        "</td><td>" + f3(d.e / d.n) + "</td></tr>";
+    });
+    $("tbl-val").innerHTML = "<thead><tr><th>Сутки</th><th>Факт, средняя доля</th><th>Прогноз, средняя доля</th><th>Средняя ошибка</th></tr></thead><tbody>" + body + "</tbody>";
+  }
+
+  /* ================= шапка ================= */
+  function drawMeta() {
+    var it = issue();
+    var first = it.ts[0], last = it.ts[span() - 1];
+    $("chart-sub").textContent = "выпуск от " + dmy(it.issue_date + " ") + " · горизонт " +
+      dmy(first) + " " + hhmm(first) + " — " + dmy(last) + " " + hhmm(last) + " (Алматы) · " +
+      (state.mw ? "слева доля номинала, справа МВт" : "доля номинала станции");
+    $("m-source").innerHTML = "<b>Источник погоды:</b> " + D.source.weather + ". " + D.source.note +
+      ". Факт погоды не используется: на дату выпуска он ещё не существовал.";
+    var w = D.model.weights.turbine_1;
+    $("m-model").innerHTML = "<b>Модель:</b> коммит <code>" + D.model.commit + "</code>, обучена " +
+      D.model.trained_at + ", веса смеси турбины 1 — кривая " + ru(w.curve, 1) + ", двухэтапная " +
+      ru(w.two_stage, 1) + ", бустинг " + ru(w.gbm, 1) + ".";
+    var llm = issue().agent_llm;
+    $("m-mode-note").innerHTML = llm
+      ? "<b>Режим:</b> для этой даты сохранён и живой журнал LLM-оркестрации, и детерминированный прогон — числа совпадают, отличается только порядок решений."
+      : "<b>Режим:</b> живой журнал LLM-оркестрации сохранён для 05.02, 15.02 и 21.02; для остальных дат бэктест шёл детерминированным планировщиком.";
+    var btnLlm = $("seg-mode").querySelector("[data-m='llm']");
+    btnLlm.disabled = !llm;
+    if (!llm && state.mode === "llm") state.mode = "det";
+    Array.prototype.forEach.call($("seg-mode").querySelectorAll("button"), function (b) {
+      b.setAttribute("aria-pressed", b.dataset.m === state.mode ? "true" : "false");
+    });
+    $("mw-note").textContent = state.mw
+      ? "Допущение: номинал турбины в исходных данных не указан. " + ru(state.mw, 1) +
+        " МВт взято как рабочая оценка; 2,5 МВт соответствует Шелекской ВЭС — 60 МВт на 24 машины. Правая ось и МВт·ч пересчитаны по нему."
+      : "Значения показаны в долях номинала: мощность турбины в исходных данных не указана.";
+    $("built").textContent = "данные собраны " + D.generated_at;
+  }
+
+  /* ================= перерисовка ================= */
+  function renderAll() {
+    drawMeta(); drawMain(); drawAgent(); drawBid(); drawHours();
+    hideCursor();
+  }
+
+  /* ================= события ================= */
   function bindSeg(id, apply) {
-    var box = document.getElementById(id);
+    var box = $(id);
     box.addEventListener("click", function (ev) {
-      var btn = ev.target.closest("button");
-      if (!btn) return;
-      Array.prototype.forEach.call(box.querySelectorAll("button"), function (b) {
-        b.setAttribute("aria-pressed", String(b === btn));
+      var b = ev.target.closest("button");
+      if (!b || b.disabled) return;
+      Array.prototype.forEach.call(box.querySelectorAll("button"), function (x) {
+        x.setAttribute("aria-pressed", x === b ? "true" : "false");
       });
-      apply(btn);
-      state.cursor = null;
-      tip.style.opacity = 0;
-      render();
+      apply(b);
+      renderAll();
     });
   }
-  bindSeg("seg-lead", function (btn) { state.lead = Number(btn.dataset.lead); });
-  bindSeg("seg-range", function (btn) {
-    state.from = Number(btn.dataset.from);
-    state.to = Number(btn.dataset.to);
-  });
 
-  // клавиатура: те же значения, что и по наведению
-  svg.addEventListener("keydown", function (ev) {
-    var i = state.cursor === null ? state.from : state.cursor;
-    if (ev.key === "ArrowRight") i = Math.min(state.to - 1, i + 1);
-    else if (ev.key === "ArrowLeft") i = Math.max(state.from, i - 1);
-    else if (ev.key === "Home") i = state.from;
-    else if (ev.key === "End") i = state.to - 1;
-    else if (ev.key === "Escape") { hideCursor(); return; }
-    else return;
-    ev.preventDefault();
-    showCursor(i);
-  });
-  svg.addEventListener("blur", hideCursor);
+  function init() {
+    var sel = $("issue");
+    D.issues.forEach(function (it, k) {
+      var o = document.createElement("option");
+      o.value = k;
+      o.textContent = "выпуск от " + dmy(it.issue_date + " ") + (it.agent && it.agent.recalculated ? " · пересчёт" : "");
+      sel.appendChild(o);
+    });
+    // по умолчанию — день, где агент сам принял решение о пересчёте
+    var def = D.issues.findIndex(function (it) { return it.issue_date === "2026-02-15"; });
+    state.i = def >= 0 ? def : 0;
+    sel.value = String(state.i);
 
-  render();
+    sel.addEventListener("change", function () { state.i = Number(sel.value); syncSteppers(); renderAll(); });
+    $("prev").addEventListener("click", function () { if (state.i > 0) { state.i--; sel.value = String(state.i); syncSteppers(); renderAll(); } });
+    $("next").addEventListener("click", function () { if (state.i < D.issues.length - 1) { state.i++; sel.value = String(state.i); syncSteppers(); renderAll(); } });
+
+    bindSeg("seg-hz", function (b) { state.hz = Number(b.dataset.h); });
+    bindSeg("seg-mode", function (b) { state.mode = b.dataset.m; });
+    bindSeg("seg-mw", function (b) { state.mw = Number(b.dataset.p); });
+
+    var hit = $("box-main");
+    hit.addEventListener("mousemove", function (ev) { cursorAt(idxFromEvent(ev)); });
+    hit.addEventListener("mouseleave", hideCursor);
+    $("svg-main").addEventListener("keydown", function (ev) {
+      var g = mainGeo; if (!g) return;
+      var cur = $("svg-main").querySelector("#cursor");
+      var visible = cur && cur.getAttribute("opacity") === "1";
+      var idx = visible ? Number(cur.dataset.i || 0) : 0;
+      if (ev.key === "ArrowRight") idx = Math.min(g.n - 1, idx + 1);
+      else if (ev.key === "ArrowLeft") idx = Math.max(0, idx - 1);
+      else if (ev.key === "Home") idx = 0;
+      else if (ev.key === "End") idx = g.n - 1;
+      else if (ev.key === "Escape") { hideCursor(); return; }
+      else return;
+      ev.preventDefault();
+      cur.dataset.i = idx;
+      cursorAt(idx);
+    });
+
+    var vbox = $("box-val");
+    vbox.addEventListener("mousemove", function (ev) {
+      if (!VG) return;
+      var rect = vbox.getBoundingClientRect();
+      var x = (ev.clientX - rect.left) / (rect.width / VG.W);
+      var rel = (x - VG.m.l) / VG.PW * (VG.n - 1);
+      vCursor(Math.max(0, Math.min(VG.n - 1, Math.round(rel))));
+    });
+    vbox.addEventListener("mouseleave", function () {
+      var c = $("svg-val").querySelector("#vcursor");
+      if (c) c.setAttribute("opacity", 0);
+      $("tip-val").style.opacity = 0;
+    });
+
+    $("copy").addEventListener("click", function () {
+      var text = bidRows.map(function (r) { return r.join("\t"); }).join("\n");
+      var done = function () {
+        var c = $("copied"); c.hidden = false;
+        setTimeout(function () { c.hidden = true; }, 2000);
+      };
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(text).then(done, function () { fallbackCopy(text, done); });
+      } else fallbackCopy(text, done);
+    });
+
+    var th = $("theme");
+    var saved = null;
+    try { saved = localStorage.getItem("wa-theme"); } catch (e) {}
+    if (saved) document.documentElement.setAttribute("data-theme", saved);
+    th.addEventListener("click", function () {
+      var root = document.documentElement;
+      var now = root.getAttribute("data-theme");
+      var dark = now ? now === "dark"
+        : window.matchMedia("(prefers-color-scheme: dark)").matches;
+      var next = dark ? "light" : "dark";
+      root.setAttribute("data-theme", next);
+      try { localStorage.setItem("wa-theme", next); } catch (e) {}
+    });
+
+    syncSteppers();
+    renderAll();
+    drawValidation(); drawMetrics(); drawValTable();
+    window.addEventListener("resize", function () { hideCursor(); });
+  }
+  function syncSteppers() {
+    $("prev").disabled = state.i === 0;
+    $("next").disabled = state.i === D.issues.length - 1;
+  }
+  function fallbackCopy(text, done) {
+    var ta = document.createElement("textarea");
+    ta.value = text; ta.style.position = "fixed"; ta.style.opacity = "0";
+    document.body.appendChild(ta); ta.select();
+    try { document.execCommand("copy"); done(); } catch (e) {}
+    document.body.removeChild(ta);
+  }
+
+  init();
 })();
 </script>
 </body>

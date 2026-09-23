@@ -1,0 +1,354 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>WindAgent — как устроено решение</title>
+<meta name="description" content="Как устроен WindAgent: агентный цикл из пяти инструментов, модель выработки, честная валидация января 2026 и порядок проверки решения.">
+<link rel="icon" href="demo/favicon.svg" type="image/svg+xml">
+<link rel="icon" href="demo/favicon-32.png" sizes="32x32">
+<link rel="apple-touch-icon" href="demo/apple-touch-icon-180.png">
+<style>
+:root {
+  color-scheme: light;
+  --font: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  --font-mono: ui-monospace, SFMono-Regular, "Cascadia Mono", Consolas, monospace;
+  --brand-800: #0E3A57;  --brand-700: #124A6E;  --brand-600: #1A6B9B;
+  --brand-500: #2E8DC2;  --brand-100: #DCEBF4;
+  --accent-600: #C87C00; --accent-500: #E08A00; --accent-100: #FBEBCF;
+  --bg: #F6F8FA;         --surface: #FFFFFF;    --surface-2: #EDF1F4;
+  --text: #10191F;       --text-2: #4A5A66;     --text-muted: #6B7C88;
+  --border: #D8E0E6;     --grid: #EDF1F4;       --link: #1A6B9B;
+  --series-1: #1A6B9B;   --series-2: #C87C00;
+  --band: rgba(26,107,155,.14);  --ref: #6B7C88;  --farm: #0E3A57;
+  --ok: #0CA30C; --warn: #FAB219; --fail: #D03B3B;
+  --radius-control: 6px; --radius-card: 12px;
+  --shadow: 0 1px 2px rgba(16,25,31,.06), 0 8px 24px rgba(16,25,31,.06);
+  --content: 1120px; --measure: 760px;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    color-scheme: dark;
+    --brand-100: #17313F;  --accent-100: #3A2D10;
+    --bg: #0D1216;         --surface: #151D23;   --surface-2: #1E2933;
+    --text: #EDF1F4;       --text-2: #B6C2CB;    --text-muted: #8697A3;
+    --border: #2A3742;     --grid: #1E2933;      --link: #6FB4DB;
+    --series-1: #2E8DC2;   --series-2: #C87C00;
+    --band: rgba(46,141,194,.18); --ref: #8697A3; --farm: #6FB4DB;
+    --shadow: none;
+  }
+}
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --brand-100: #17313F;  --accent-100: #3A2D10;
+  --bg: #0D1216;         --surface: #151D23;   --surface-2: #1E2933;
+  --text: #EDF1F4;       --text-2: #B6C2CB;    --text-muted: #8697A3;
+  --border: #2A3742;     --grid: #1E2933;      --link: #6FB4DB;
+  --series-1: #2E8DC2;   --series-2: #C87C00;
+  --band: rgba(46,141,194,.18); --ref: #8697A3; --farm: #6FB4DB;
+  --shadow: none;
+}
+* { box-sizing: border-box; }
+html, body { margin: 0; padding: 0; }
+body { font-family: var(--font); font-size: 15px; line-height: 24px; color: var(--text); background: var(--bg); }
+.wrap { max-width: var(--content); margin: 0 auto; padding: 0 20px; }
+h1 { font-size: 34px; line-height: 40px; font-weight: 650; letter-spacing: -.02em; margin: 0 0 12px; }
+h2 { font-size: 22px; line-height: 28px; font-weight: 600; margin: 0 0 10px; letter-spacing: -.01em; }
+h3 { font-size: 17px; line-height: 24px; font-weight: 600; margin: 0 0 6px; }
+p { margin: 0 0 12px; max-width: var(--measure); }
+a { color: var(--link); text-underline-offset: 2px; }
+.num { font-variant-numeric: tabular-nums; }
+
+.topbar { border-bottom: 1px solid var(--border); background: var(--surface); position: sticky; top: 0; z-index: 20; }
+.topbar .wrap { display: flex; align-items: center; gap: 16px; min-height: 60px; flex-wrap: wrap; }
+.brand { display: flex; align-items: center; gap: 10px; text-decoration: none; color: inherit; }
+.brand img { width: 32px; height: 32px; border-radius: 8px; display: block; }
+.brand .mk-dark { display: none; }
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) .brand .mk-light { display: none; }
+  :root:not([data-theme="light"]) .brand .mk-dark { display: block; }
+}
+:root[data-theme="dark"] .brand .mk-light { display: none; }
+:root[data-theme="dark"] .brand .mk-dark { display: block; }
+.brand b { font-weight: 650; }
+.brand span { color: var(--text-muted); font-size: 13px; }
+.topnav { margin-left: auto; display: flex; gap: 14px; align-items: center; font-size: 13px; }
+.topnav a { color: var(--text-2); text-decoration: none; }
+.topnav a:hover { color: var(--link); text-decoration: underline; }
+.topnav a.cta { color: var(--link); font-weight: 600; }
+.iconbtn { border: 1px solid var(--border); background: var(--surface); color: var(--text-2); border-radius: var(--radius-control); height: 30px; padding: 0 10px; cursor: pointer; font: inherit; font-size: 13px; }
+.iconbtn:hover { border-color: var(--link); color: var(--link); }
+
+.hero { padding: 40px 0 24px; }
+.eyebrow { font-size: 13px; letter-spacing: .04em; text-transform: uppercase; color: var(--text-muted); margin-bottom: 10px; }
+.lead { font-size: 17px; line-height: 26px; color: var(--text-2); max-width: var(--measure); }
+.chips { display: flex; gap: 8px; flex-wrap: wrap; margin: 18px 0 0; padding: 0; list-style: none; }
+.chips li { font-size: 13px; background: var(--surface); border: 1px solid var(--border); border-radius: 999px; padding: 4px 12px; color: var(--text-2); }
+
+main { padding-bottom: 48px; }
+section { margin-bottom: 20px; }
+.card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-card); box-shadow: var(--shadow); padding: 20px; }
+
+.stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; }
+@media (max-width: 860px) { .stats { grid-template-columns: repeat(2, 1fr); } }
+.stat { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-card); padding: 14px 16px; box-shadow: var(--shadow); }
+.stat .k { font-size: 12px; color: var(--text-muted); line-height: 16px; }
+.stat .v { font-size: 34px; line-height: 42px; font-weight: 600; letter-spacing: -.02em; }
+.stat .h { font-size: 12px; color: var(--text-muted); line-height: 16px; }
+
+.tbl-wrap { overflow-x: auto; }
+table { border-collapse: collapse; width: 100%; font-size: 14px; }
+th, td { text-align: right; padding: 9px 10px; border-bottom: 1px solid var(--border); white-space: nowrap; }
+th:first-child, td:first-child { text-align: left; }
+thead th { font-size: 11px; letter-spacing: .04em; text-transform: uppercase; color: var(--text-muted); font-weight: 600; white-space: normal; }
+tbody td { font-variant-numeric: tabular-nums; }
+tbody tr:last-child td { border-bottom: 0; }
+tbody tr.me td { background: var(--brand-100); font-weight: 600; }
+
+.tools { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
+.tools li { display: flex; gap: 12px; align-items: baseline; padding: 9px 12px; background: var(--surface-2); border-radius: 8px; font-size: 14px; }
+.tools code { font-family: var(--font-mono); font-size: 13px; color: var(--brand-700); font-weight: 600; flex: none; }
+:root[data-theme="dark"] .tools code { color: var(--brand-500); }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .tools code { color: var(--brand-500); } }
+
+.trace { list-style: none; counter-reset: s; margin: 0; padding: 0; }
+.trace li { display: flex; gap: 12px; padding: 10px 0; border-bottom: 1px dashed var(--border); }
+.trace li:last-child { border-bottom: 0; }
+.trace .n { flex: none; width: 22px; height: 22px; border-radius: 50%; background: var(--brand-100); color: var(--brand-700); font-size: 12px; font-weight: 700; display: grid; place-items: center; }
+:root[data-theme="dark"] .trace .n { color: var(--brand-500); }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .trace .n { color: var(--brand-500); } }
+.trace .n.warn { background: var(--accent-100); color: var(--accent-600); }
+.trace code { font-family: var(--font-mono); font-size: 13px; }
+.trace .d { color: var(--text-2); font-size: 14px; line-height: 21px; }
+blockquote { margin: 14px 0 6px; padding: 12px 16px; border-left: 3px solid var(--brand-600); background: var(--surface-2); border-radius: 0 8px 8px 0; font-size: 14px; line-height: 22px; color: var(--text-2); }
+blockquote + .cap { font-size: 13px; color: var(--text-muted); }
+
+.checks { margin: 0; padding-left: 20px; font-size: 14px; line-height: 22px; color: var(--text-2); }
+.checks li { margin-bottom: 8px; }
+.checks b { color: var(--text); }
+.warnbox { border: 1px solid var(--border); background: var(--surface-2); border-radius: 8px; padding: 12px 14px; font-size: 14px; line-height: 21px; color: var(--text-2); }
+
+.chartcard { padding: 16px 20px 20px; }
+svg.chart { display: block; width: 100%; height: auto; }
+.gridline { stroke: var(--grid); stroke-width: 1; }
+.axis-text { fill: var(--text-muted); font-size: 11px; font-family: var(--font); font-variant-numeric: tabular-nums; }
+.s-t1 { fill: none; stroke: var(--series-1); stroke-width: 1.6; stroke-linejoin: round; }
+.s-t2 { fill: none; stroke: var(--series-2); stroke-width: 1.6; stroke-dasharray: 6 3; stroke-linejoin: round; }
+.legend { display: flex; gap: 16px; flex-wrap: wrap; font-size: 13px; color: var(--text-2); margin-bottom: 8px; }
+.legend span { display: inline-flex; align-items: center; gap: 7px; }
+.key { width: 18px; border-top-width: 2px; border-top-style: solid; display: inline-block; }
+.key.t1 { border-color: var(--series-1); }
+.key.t2 { border-color: var(--series-2); border-top-style: dashed; }
+.note { font-size: 12px; line-height: 18px; color: var(--text-muted); }
+footer { border-top: 1px solid var(--border); padding: 20px 0 40px; color: var(--text-muted); font-size: 13px; }
+.grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; align-items: start; }
+@media (max-width: 900px) { .grid2 { grid-template-columns: 1fr; } }
+</style>
+</head>
+<body>
+
+<header class="topbar">
+  <div class="wrap">
+    <a class="brand" href="./">
+      <img class="mk-light" src="demo/mark.svg" alt="" width="32" height="32">
+      <img class="mk-dark" src="demo/mark-dark.svg" alt="" width="32" height="32">
+      <span style="display:flex;flex-direction:column;line-height:1.2">
+        <b>WindAgent</b><span>прогноз выработки ВЭС</span>
+      </span>
+    </a>
+    <nav class="topnav">
+      <a class="cta" href="./">← Дашборд</a>
+      <a href="https://github.com/BAITC-Hacks/hack-c63c1350-technokod">Репозиторий</a>
+      <button class="iconbtn" id="theme" type="button" aria-label="Переключить тему">Тема</button>
+    </nav>
+  </div>
+</header>
+
+<main>
+<div class="wrap">
+
+  <section class="hero">
+    <div class="eyebrow">HackAlem AI 2026 · трек «Энергетика» · кейс Самрук-Казына</div>
+    <h1>Как устроено решение</h1>
+    <p class="lead">Агент прогнозирует почасовую выработку двух турбин ветроэлектростанции на 24–48 часов вперёд, используя только тот прогноз погоды, который был доступен на момент выпуска. Команда Technokod.</p>
+    <ul class="chips">
+      <li>Горизонт 24–48 ч, шаг 1 час</li>
+      <li>Тест: февраль 2026, 28 выпусков</li>
+      <li>nMAE 14.31 % на сутки</li>
+      <li>Оркестрация через function calling</li>
+    </ul>
+  </section>
+
+  <section class="card">
+    <h2>Задача и решение</h2>
+    <p>Две турбины стоят в 400 метрах друг от друга в Шелекском ветровом коридоре Алматинской области. Требуется почасовой прогноз их выработки на 24–48 часов вперёд для суточной заявки на рынок и планирования резервов.</p>
+    <p>Ключевое требование кейса: для каждой даты выпуска разрешено использовать только тот прогноз погоды, который был доступен именно на этот момент, а не фактические значения, ставшие известными позже. Решение берёт архивные выпуски прогноза Open-Meteo Previous Runs: часы 1–24 горизонта из прогноза, выпущенного за сутки, часы 25–48 — из выпущенного за двое суток.</p>
+    <p>Агент проходит полный цикл на каждую дату: получает прогноз погоды, готовит признаки, запускает модель выработки, анализирует результат, сравнивает его с предыдущим выпуском и пересчитывает прогноз, если входные данные обновились. Порядок вызова инструментов выбирает языковая модель через function calling; без ключа провайдера тот же цикл выполняет детерминированный планировщик, поэтому числовой результат не зависит от доступности внешнего сервиса.</p>
+    <p style="margin-bottom:0"><a href="./">Открыть дашборд диспетчера →</a> — там любой из 28 выпусков февраля с коридором неопределённости, трассой решений агента и сводкой для заявки.</p>
+  </section>
+
+  <section class="card chartcard">
+    <h2>Прогноз на февраль 2026</h2>
+    <p>Результат 28 последовательных выпусков: на каждый час февраля взят самый свежий доступный прогноз — тот, что выпущен накануне. Значения — нормированная мощность, доля от номинала турбины.</p>
+    <div class="legend">
+      <span><i class="key t1"></i> турбина 1</span>
+      <span><i class="key t2"></i> турбина 2</span>
+    </div>
+    <svg class="chart" id="feb" viewBox="0 0 1000 300" role="img"
+         aria-label="Почасовой прогноз выработки двух турбин за февраль 2026, 672 часа"></svg>
+    <p class="note" id="feb-note"></p>
+  </section>
+
+  <section>
+    <h2 style="margin-bottom:12px">Точность на честной валидации</h2>
+    <p>Модель обучена на данных до 31 декабря 2025 года и проверена на январе 2026: 30 последовательных выпусков по 48 часов, каждый — по прогнозу погоды, доступному накануне. Факт погоды не использовался ни в обучении, ни в проверке.</p>
+    <div class="stats">
+      <div class="stat"><div class="k">nMAE, горизонт 24 ч</div><div class="v">14.31 %</div><div class="h">турбина 1; турбина 2 — 14.55 %</div></div>
+      <div class="stat"><div class="k">nMAE, горизонт 48 ч</div><div class="v">16.33 %</div><div class="h">турбина 1; турбина 2 — 16.66 %</div></div>
+      <div class="stat"><div class="k">Покрытие P10–P90</div><div class="v">79.4 %</div><div class="h">на сутки; на двое суток — 79.7 %</div></div>
+      <div class="stat"><div class="k">Лучше персистентности</div><div class="v">58–60 %</div><div class="h">по MAE, горизонт 24 ч</div></div>
+    </div>
+  </section>
+
+  <section class="grid2">
+    <div class="card">
+      <h3>Ошибка по турбинам и горизонтам</h3>
+      <div class="tbl-wrap">
+        <table>
+          <thead><tr><th>Турбина</th><th>Горизонт</th><th>MAE</th><th>RMSE</th><th>nMAE</th></tr></thead>
+          <tbody>
+            <tr><td>Турбина 1</td><td>24 ч</td><td>0.1431</td><td>0.2015</td><td>14.31 %</td></tr>
+            <tr><td>Турбина 1</td><td>48 ч</td><td>0.1633</td><td>0.2296</td><td>16.33 %</td></tr>
+            <tr><td>Турбина 2</td><td>24 ч</td><td>0.1455</td><td>0.2041</td><td>14.55 %</td></tr>
+            <tr><td>Турбина 2</td><td>48 ч</td><td>0.1666</td><td>0.2316</td><td>16.66 %</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+    <div class="card">
+      <h3>Сравнение с эталонами</h3>
+      <p class="note" style="margin-bottom:10px">MAE на январе 2026, горизонт 24 часа, одно и то же окно из 720 часов. Чем меньше, тем лучше.</p>
+      <div class="tbl-wrap">
+        <table>
+          <thead><tr><th>Метод</th><th>Турбина 1</th><th>Турбина 2</th></tr></thead>
+          <tbody>
+            <tr class="me"><td>Модель WindAgent</td><td>0.1431</td><td>0.1455</td></tr>
+            <tr><td>Климатология по часу суток</td><td>0.3003</td><td>0.3007</td></tr>
+            <tr><td>Константа — среднее по истории</td><td>0.3010</td><td>0.3017</td></tr>
+            <tr><td>Персистентность</td><td>0.3568</td><td>0.3463</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <p class="note" style="margin-top:10px">Модель точнее персистентности на 58–60 % и климатологии на 52 %.</p>
+    </div>
+  </section>
+
+  <section class="card">
+    <h2>Как работает агент</h2>
+    <p>Пять инструментов, между которыми агент выбирает сам. Каждый выпуск сохраняет журнал с полной трассой вызовов — по нему любое решение агента можно разобрать постфактум.</p>
+    <ul class="tools">
+      <li><code>get_weather</code><span>Архивный прогноз погоды, доступный на дату выпуска</span></li>
+      <li><code>prepare_and_predict</code><span>Признаки и расчёт выработки по обеим турбинам</span></li>
+      <li><code>analyze</code><span>Штиль, номинал, шторм, расхождение с прошлым выпуском</span></li>
+      <li><code>recalculate</code><span>Повторный расчёт и буревая защита турбины</span></li>
+      <li><code>save_forecast</code><span>Запись выпуска и журнала действий</span></li>
+    </ul>
+
+    <h3 style="margin-top:22px">Реальная трасса выпуска от 15 февраля 2026</h3>
+    <p class="note" style="margin-bottom:12px">Журнал <code>outputs/agent_logs_llm/2026-02-15.json</code>, режим с живой оркестрацией: порядок инструментов выбрала модель.</p>
+    <ol class="trace">
+      <li><span class="n">1</span><span><code>get_weather</code><div class="d">48 часов прогноза на 16–17 февраля: 24 часа из выпуска за сутки, 24 из выпуска за двое суток. Ветер на 100 м от 3.4 до 7.7 м/с при среднем 5.9, температура от 0.4 до 9.6 °C.</div></span></li>
+      <li><span class="n">2</span><span><code>prepare_and_predict</code><div class="d">96 строк — 48 часов на каждую из двух турбин. Средний коэффициент использования 0.379 и 0.370, ожидаемая выработка 18.2 и 17.7 норм·ч.</div></span></li>
+      <li><span class="n">3</span><span><code>analyze</code><div class="d">Штилевых, номинальных и штормовых часов нет. Расхождение с выпуском предыдущего дня на пересекающихся 24 часах: 0.164 в среднем при пороге пересчёта 0.15, максимум 0.441 → <code>needs_recalculation: true</code>.</div></span></li>
+      <li><span class="n">4</span><span><code>prepare_and_predict</code><div class="d">Модель самостоятельно пересчитала прогноз на обновлённых данных перед вызовом пересчёта.</div></span></li>
+      <li><span class="n warn">5</span><span><code>recalculate</code><div class="d">Источник прогноза опрошен заново, буревая защита не сработала — штормовых часов нет, обнулённых строк 0.</div></span></li>
+      <li><span class="n">6</span><span><code>save_forecast</code><div class="d">Выпуск сохранён: <code>outputs/forecasts/2026-02-15.csv</code>, 96 строк.</div></span></li>
+    </ol>
+    <blockquote>«Прогноз выпущен на 48 часов для турбин 1 и 2. Ожидаемая выработка: турбина 1 — 18.2 нормо-часа, турбина 2 — 17.7 нормо-часа; средний коэффициент использования — 0.379 и 0.370 соответственно. Рисков штиля и шторма по анализу не выявлено, номинальных часов тоже нет. Относительно прошлого выпуска входные данные заметно изменились, поэтому потребовался пересчёт; после пересчёта буревая защита не сработала.»</blockquote>
+    <p class="cap">Заключение записано языковой моделью и сохранено в журнале выпуска дословно. За весь тестовый период агент выполнил пересчёт в четырёх выпусках из 28: 6, 15, 21 и 24 февраля.</p>
+  </section>
+
+  <section class="card">
+    <h2>Проверяемость</h2>
+    <p>Решение проверяется на чужой машине без сети и без ключей: кэш архивных прогнозов погоды лежит в репозитории.</p>
+    <ul class="checks">
+      <li><b>Контрольный сценарий одной командой:</b> <code>bash scripts/demo.sh</code> или <code>powershell scripts/demo.ps1</code>. На обученных моделях проходит за 20–30 секунд, на чистом клоне — 38 секунд вместе с обучением, из них само обучение 14 секунд.</li>
+      <li><b>Десять автотестов</b> за три секунды: часовая агрегация, сборка признаков, честность источника прогноза, выпуск агента, отбраковка неверной даты, сборка итогового ряда февраля, буревое обнуление всех компонентов прогноза, откат на детерминированный план при отказе провайдера, границы интервала и его расширение на вторые сутки.</li>
+      <li><b>Сценарий останавливается на первой ошибке</b> и возвращает ненулевой код, поэтому «зелёный» прогон нельзя получить на сломанном коде.</li>
+      <li><b>Живая оркестрация языковой моделью</b> — необязательный седьмой шаг: при заданном ключе выполняется, без ключа пропускается с явным сообщением.</li>
+    </ul>
+    <div class="warnbox" style="margin-top:14px">Развёрнутого промышленного сервиса у решения нет, и эти страницы им не являются: они показывают результат работы агента на тестовом периоде. Исполняемое решение запускается из репозитория — интерфейс командной строки и HTTP-сервис на FastAPI описаны в README.</div>
+  </section>
+
+  <section>
+    <div class="legend" style="gap:18px">
+      <a href="https://github.com/BAITC-Hacks/hack-c63c1350-technokod#readme">README</a>
+      <a href="https://github.com/BAITC-Hacks/hack-c63c1350-technokod/blob/main/docs/architecture.md">Архитектура</a>
+      <a href="https://github.com/BAITC-Hacks/hack-c63c1350-technokod/blob/main/docs/agent-design.md">Устройство агента</a>
+      <a href="https://github.com/BAITC-Hacks/hack-c63c1350-technokod/blob/main/docs/validation.md">Протокол валидации</a>
+      <a href="https://github.com/BAITC-Hacks/hack-c63c1350-technokod/blob/main/outputs/forecast_feb2026.csv">Итоговый прогноз, CSV</a>
+    </div>
+  </section>
+</div>
+</main>
+
+<footer>
+  <div class="wrap">
+    Команда Technokod · HackAlem AI 2026 · кейс «Agentic AI для прогнозирования выработки ВЭС», Самрук-Казына.
+    Источник погоды — Open-Meteo Previous Runs API. Данные выработки предоставлены организатором.
+  </div>
+</footer>
+
+<script src="demo/forecast-feb2026.js"></script>
+<script>
+(function () {
+  "use strict";
+  var F = window.FEB_DATA, svg = document.getElementById("feb");
+  var SVGNS = "http://www.w3.org/2000/svg";
+  function el(n, a, t) {
+    var e = document.createElementNS(SVGNS, n);
+    for (var k in a) e.setAttribute(k, a[k]);
+    if (t !== undefined) e.textContent = t;
+    return e;
+  }
+  if (F && svg) {
+    var t1 = F.t1l1 || [], t2 = F.t2l1 || [];
+    var n = t1.length, W = 1000, H = 300, m = { l: 40, r: 14, t: 12, b: 26 };
+    var PW = W - m.l - m.r, PH = H - m.t - m.b;
+    var x = function (i) { return m.l + i * PW / (n - 1); };
+    var y = function (v) { return m.t + (1 - v) * PH; };
+    [0, 0.5, 1].forEach(function (v) {
+      svg.appendChild(el("line", { x1: m.l, y1: y(v), x2: m.l + PW, y2: y(v), "class": "gridline" }));
+      svg.appendChild(el("text", { x: m.l - 8, y: y(v) + 4, "class": "axis-text", "text-anchor": "end" }, v.toFixed(1).replace(".", ",")));
+    });
+    for (var d = 0; d < 28; d += 7) {
+      svg.appendChild(el("text", { x: x(d * 24), y: H - 8, "class": "axis-text", "text-anchor": "middle" }, (d + 1) + ".02"));
+    }
+    var path = function (arr) {
+      var s = "", open = false;
+      for (var i = 0; i < arr.length; i++) {
+        if (arr[i] === null || arr[i] === undefined) { open = false; continue; }
+        s += (open ? "L" : "M") + x(i).toFixed(1) + " " + y(arr[i]).toFixed(1) + " ";
+        open = true;
+      }
+      return s;
+    };
+    svg.appendChild(el("path", { d: path(t1), "class": "s-t1" }));
+    svg.appendChild(el("path", { d: path(t2), "class": "s-t2" }));
+    document.getElementById("feb-note").textContent =
+      "672 часа, 1–28 февраля 2026, местное время Алматы. Полный ряд — в файле outputs/forecast_feb2026.csv репозитория.";
+  }
+  var th = document.getElementById("theme"), saved = null;
+  try { saved = localStorage.getItem("wa-theme"); } catch (e) {}
+  if (saved) document.documentElement.setAttribute("data-theme", saved);
+  th.addEventListener("click", function () {
+    var root = document.documentElement, now = root.getAttribute("data-theme");
+    var dark = now ? now === "dark" : window.matchMedia("(prefers-color-scheme: dark)").matches;
+    var next = dark ? "light" : "dark";
+    root.setAttribute("data-theme", next);
+    try { localStorage.setItem("wa-theme", next); } catch (e) {}
+  });
+})();
+</script>
+</body>
+</html>

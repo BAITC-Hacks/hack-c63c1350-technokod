@@ -461,6 +461,9 @@ footer { border-top: 1px solid var(--border); padding: 18px 0 34px; color: var(-
   background: var(--warn-bg, #FFF6E5); border: 1px solid var(--warn-bd, #F0DCAE); color: var(--text-secondary); }
 #simple-note b { color: var(--text); }
 #simple-note code { font-size: 12px; }
+#simple-note details { margin-top: 6px; }
+#simple-note summary { cursor: pointer; font-weight: 600; color: var(--text-secondary); }
+#simple-note details > *:not(summary) { margin-top: 6px; }
 :root:not([data-theme=light]) #simple-note { background: #2A2416; border-color: #4A3F22; }
 @media (prefers-color-scheme: dark) { :root:not([data-theme=light]) #simple-note { background: #2A2416; border-color: #4A3F22; } }
 :root[data-theme=dark] #simple-note { background: #2A2416; border-color: #4A3F22; }
@@ -527,11 +530,9 @@ footer .wrap { display: flex; gap: 16px; flex-wrap: wrap; justify-content: space
       <button type="button" data-s="test" aria-pressed="true">Тестовый период</button>
       <button type="button" data-s="any">Произвольный период</button>
     </div>
-    <div class="chip range" id="chip-range" hidden data-hint="&lt;b&gt;Любой диапазон дат.&lt;/b&gt; Архив прогнозов Open-Meteo доступен с 16.02.2024, прогноз вперёд — не дальше 16 суток. Диапазон, пересекающий сегодняшний день, склеивается из архива и текущего прогона.">
-      <span class="k">Период</span>
-      <input type="date" id="d-from" aria-label="Начало периода">
-      <span class="dash">—</span>
-      <input type="date" id="d-to" aria-label="Конец периода">
+    <div class="chip range" id="chip-range" hidden data-hint="&lt;b&gt;Дата выпуска прогноза.&lt;/b&gt; Семантика та же, что и в тестовом периоде: выпуск в конце выбранных суток, прогноз покрывает следующие двое суток. Источник выбирается автоматически — архивные слои для прошлого, текущий прогон для сегодня и будущего. Архив доступен с 16.02.2024, прогноз вперёд — не дальше 16 суток.">
+      <span class="k">Выпуск</span>
+      <input type="date" id="d-issue" aria-label="Дата выпуска прогноза">
       <button type="button" class="go" id="go">Рассчитать</button>
     </div>
     <div class="chip seg" id="seg-hz" role="group" aria-label="Горизонт прогноза" data-hint="&lt;b&gt;Сколько часов показано на экране.&lt;/b&gt; Выбор не запускает новый расчёт: выпуск уже посчитан на 48 часов, меняется только отображаемый период, а показатели риска пересчитываются под него.">
@@ -852,7 +853,8 @@ footer .wrap { display: flex; gap: 16px; flex-wrap: wrap; justify-content: space
   var LAT = 43.6442, LON = 78.5372;
   var ARCHIVE_FROM = "2024-02-16";
   var VARS_LIVE = "wind_speed_100m,wind_gusts_10m,wind_direction_100m,temperature_2m";
-  var VARS_PREV = "wind_speed_100m_previous_day1,wind_gusts_10m_previous_day1,wind_direction_100m_previous_day1";
+  var VARS_PREV = "wind_speed_100m_previous_day1,wind_gusts_10m_previous_day1,wind_direction_100m_previous_day1,"
+    + "wind_speed_100m_previous_day2,wind_gusts_10m_previous_day2,wind_direction_100m_previous_day2";
 
   function interp(xs, ys, x) {
     if (!(x > xs[0])) return ys[0];
@@ -883,7 +885,9 @@ footer .wrap { display: flex; gap: 16px; flex-wrap: wrap; justify-content: space
       return r.json();
     });
   }
-  /* архивные прогнозы: слой previous_day1 — прогноз, выпущенный сутками ранее */
+  /* Архивные прогнозы, как в app/weather.py::forecast_available_at: сутки D+1 берутся
+     из слоя previous_day1, сутки D+2 — из previous_day2. Оба слоя построены на прогонах
+     суток D, то есть на том, что было известно к концу дня выпуска. */
   function fetchArchive(from, to) {
     var u = "https://previous-runs-api.open-meteo.com/v1/forecast?latitude=" + LAT + "&longitude=" + LON +
       "&hourly=" + VARS_PREV + "&start_date=" + from + "&end_date=" + to +
@@ -891,10 +895,14 @@ footer .wrap { display: flex; gap: 16px; flex-wrap: wrap; justify-content: space
     return getJSON(u).then(function (d) {
       var h = d.hourly, out = [];
       for (var i = 0; i < h.time.length; i++) {
-        var w = h.wind_speed_100m_previous_day1[i];
+        var day = h.time[i].slice(0, 10);
+        var lead = day === from ? 1 : 2;               /* D+1 -> previous_day1, D+2 -> previous_day2 */
+        var w = h["wind_speed_100m_previous_day" + lead][i];
         if (w === null || w === undefined) continue;
-        out.push({ ts: h.time[i].replace("T", " "), ws: w, gust: h.wind_gusts_10m_previous_day1[i],
-                   dir: h.wind_direction_100m_previous_day1[i], src: "архивный прогноз" });
+        out.push({ ts: h.time[i].replace("T", " "), ws: w,
+                   gust: h["wind_gusts_10m_previous_day" + lead][i],
+                   dir: h["wind_direction_100m_previous_day" + lead][i],
+                   src: "архивный прогноз, слой " + lead + " сут." });
       }
       return out;
     });
@@ -916,11 +924,11 @@ footer .wrap { display: flex; gap: 16px; flex-wrap: wrap; justify-content: space
   }
 
   /* синтетический «выпуск» той же формы, что и посчитанные: все отрисовки работают как есть */
-  function buildCustom(rows, from, to) {
+  function buildCustom(rows, issueDate, from, to) {
     var ts = [], lead = [], wind = [], dir = [], gust = [], t1 = [], t2 = [], farm = [], p10 = [], p90 = [];
     var srcs = {};
     rows.forEach(function (r) {
-      var ld = daysBetween(from, r.ts.slice(0, 10)) <= 0 ? 1 : 2;
+      var ld = r.ts.slice(0, 10) === from ? 1 : 2;   /* сутки D+1 / D+2 */
       var a = curvePower(1, r.ws), b = curvePower(2, r.ws), f = (a + b) / 2;
       var band = bandFor(1, ld, f);
       ts.push(r.ts); lead.push(ld); wind.push(r.ws); dir.push(r.dir); gust.push(r.gust);
@@ -941,15 +949,15 @@ footer .wrap { display: flex; gap: 16px; flex-wrap: wrap; justify-content: space
       update_threshold: 0.15, needs_recalculation: false
     };
     return {
-      issue_date: from, ts: ts, lead_day: lead, wind: wind, wind_dir: dir, gust: gust,
+      issue_date: issueDate, ts: ts, lead_day: lead, wind: wind, wind_dir: dir, gust: gust,
       t1: t1, t2: t2, farm: farm, p10: p10, p90: p90,
       prev_farm: ts.map(function () { return null; }),
       custom: true, range: { from: from, to: to }, sources: srcs,
       summary: {}, agent_llm: null,
       agent: {
         llm_used: false, recalculated: false, analysis: an,
-        conclusion: "Расчёт упрощённой моделью: только кривая мощности по прогнозной скорости ветра. Период " +
-          from + " — " + to + ", часов " + ts.length + ". Средняя нормализованная мощность T1 " + ru(mean1, 2) +
+        conclusion: "Расчёт упрощённой моделью: только кривая мощности по прогнозной скорости ветра. Выпуск к концу " +
+          issueDate + ", покрыты сутки " + from + " и " + to + ", часов " + ts.length + ". Средняя нормализованная мощность T1 " + ru(mean1, 2) +
           ", T2 " + ru(mean2, 2) + ". Часов штиля " + calm + ", на номинале " + rated + ", штормовых " + storm + ".",
         trace: [
           { tool: "get_weather", result: { hours: ts.length, from: ts[0], to: ts[ts.length - 1] } },
@@ -960,38 +968,37 @@ footer .wrap { display: flex; gap: 16px; flex-wrap: wrap; justify-content: space
     };
   }
 
+  /* Выпуск на выбранную дату D: покрываются сутки D+1 и D+2 — та же семантика,
+     что у предзаписанных выпусков тестового периода. Источник выбирается по дате. */
   function runCustom() {
-    var from = $("d-from").value, to = $("d-to").value;
-    if (!from || !to) { state.err = "Укажите начало и конец периода."; renderAll(); return; }
-    if (to < from) { var sw = from; from = to; to = sw; $("d-from").value = from; $("d-to").value = to; }
-    if (from < ARCHIVE_FROM) {
-      state.err = "Архив прогнозов Open-Meteo начинается с 16.02.2024 — более ранние даты недоступны."; renderAll(); return;
+    var d0 = $("d-issue").value;
+    if (!d0) { state.err = "Укажите дату выпуска."; renderAll(); return; }
+    if (d0 < ARCHIVE_FROM) {
+      state.err = "Архив прогнозов Open-Meteo начинается с 16.02.2024 — более ранние даты выпуска недоступны.";
+      renderAll(); return;
     }
     var today = todayISO();
+    var from = addDays(d0, 1), to = addDays(d0, 2);     /* горизонт выпуска: сутки D+1 и D+2 */
     if (daysBetween(today, to) > 16) {
-      state.err = "Прогноз вперёд доступен не дальше 16 суток от сегодня."; renderAll(); return;
-    }
-    if (daysBetween(from, to) > 30) {
-      state.err = "Слишком длинный период: выберите не больше 31 суток."; renderAll(); return;
+      state.err = "Прогноз вперёд доступен не дальше 16 суток от сегодня.";
+      renderAll(); return;
     }
 
     state.busy = true; state.err = ""; state.cus = null; renderAll();
-    var jobs = [];
-    if (from < today) { jobs.push(fetchArchive(from, to < today ? to : addDays(today, -1))); }
-    if (to >= today) { jobs.push(fetchLive(Math.min(16, daysBetween(today, to) + 1))); }
+    var job = d0 < today
+      ? fetchArchive(from, to)                          /* прошлое: архивные слои 1 и 2 суток */
+      : fetchLive(Math.min(16, daysBetween(today, to) + 1));  /* сегодня и будущее: текущий прогон */
 
-    Promise.all(jobs).then(function (parts) {
-      var rows = [], seen = {};
-      parts.forEach(function (arr) {
-        arr.forEach(function (r) {
-          var d = r.ts.slice(0, 10);
-          if (d < from || d > to || seen[r.ts]) return;
-          seen[r.ts] = 1; rows.push(r);
-        });
+    job.then(function (rows) {
+      var keep = [], seen = {};
+      rows.forEach(function (r) {
+        var d = r.ts.slice(0, 10);
+        if (d < from || d > to || seen[r.ts]) return;
+        seen[r.ts] = 1; keep.push(r);
       });
-      rows.sort(function (x, y) { return x.ts < y.ts ? -1 : x.ts > y.ts ? 1 : 0; });
-      if (!rows.length) throw new Error("источник не вернул данных за этот период");
-      state.cus = buildCustom(rows, from, to);
+      keep.sort(function (x, y) { return x.ts < y.ts ? -1 : x.ts > y.ts ? 1 : 0; });
+      if (!keep.length) throw new Error("источник не вернул данных на этот выпуск");
+      state.cus = buildCustom(keep, d0, from, to);
       state.busy = false; renderAll();
     })["catch"](function (e) {
       state.busy = false;
@@ -1000,6 +1007,7 @@ footer .wrap { display: flex; gap: 16px; flex-wrap: wrap; justify-content: space
     });
   }
 
+
   function issue() { return (state.src === "any" && state.cus) ? state.cus : D.issues[state.i]; }
   function agentLog() {
     var it = issue();
@@ -1007,8 +1015,9 @@ footer .wrap { display: flex; gap: 16px; flex-wrap: wrap; justify-content: space
   }
   function span() {
     var it = issue();
-    if (it && it.custom) return it.ts.length;         /* произвольный период показываем целиком */
-    return state.hz === 24 ? 24 : 48;
+    var n = state.hz === 24 ? 24 : 48;
+    if (it && it.custom) return Math.min(n, it.ts.length);   /* тот же горизонт, что и в тестовом режиме */
+    return n;
   }
   /* Анализ агента относится ко всему выпуску (48 ч). При выборе 24 ч показывать его
      целиком нельзя: диспетчер припишет завтрашнему дню риск следующих суток.
@@ -1742,18 +1751,24 @@ footer .wrap { display: flex; gap: 16px; flex-wrap: wrap; justify-content: space
     if (state.busy) { box.innerHTML = "<b>Запрашиваем погоду у Open-Meteo…</b> расчёт идёт в браузере."; return; }
     if (state.err) { box.innerHTML = "<b>Ошибка.</b> " + state.err; return; }
     if (!state.cus) {
-      box.innerHTML = "<b>Выберите период и нажмите «Рассчитать».</b> Страница сама запросит прогноз погоды " +
-        "по координатам ВЭС и посчитает выработку. Архив доступен с 16.02.2024, прогноз вперёд — до 16 суток.";
+      box.innerHTML = "<b>Выберите дату выпуска и нажмите «Рассчитать».</b> Страница сама запросит прогноз " +
+        "погоды по координатам ВЭС и посчитает выработку на следующие двое суток.";
       return;
     }
     var it = state.cus, srcs = Object.keys(it.sources).map(function (k) { return k + " (" + it.sources[k] + " ч)"; });
-    box.innerHTML = "<b>Упрощённая модель.</b> В браузере считает только кривая мощности по прогнозной скорости " +
-      "ветра: полная смесь включает градиентный бустинг, который здесь не выполнить. На честной валидации января " +
-      "кривая даёт nMAE 14,71 и 14,80 % против 14,31 и 14,55 % у полной модели — разница 0,4 пункта при " +
-      "стандартной ошибке около 1 пункта. Числа 30 выпусков тестового периода считает полная модель, их не смешивать. " +
-      "Для полной модели на произвольную дату: <code>python -m app.cli forecast --date ГГГГ-ММ-ДД</code> или " +
-      "<code>python -m app.cli forecast --live</code>.<br>Источник входа: " + srcs.join(" + ") + ".";
+    box.innerHTML =
+      "<b>Быстрый расчёт в браузере упрощённой моделью</b> — только кривая мощности, точность на 0,4 пункта " +
+      "ниже основной. Полная модель: <code>python -m app.cli forecast --date " + it.issue_date + "</code>." +
+      "<details><summary>Подробнее</summary>" +
+      "В браузере не выполнить градиентный бустинг, поэтому из смеси перенесена только кривая мощности по " +
+      "прогнозной скорости ветра: таблица интерполяции. На честной валидации января она даёт nMAE 14,71 и " +
+      "14,80 % против 14,31 и 14,55 % у полной модели — разница 0,4 пункта при стандартной ошибке около " +
+      "1 пункта. Числа 30 выпусков тестового периода считает полная модель, их не смешивать.<br>" +
+      "Источник входа: " + srcs.join(" + ") + ". Выпуск к концу " + it.issue_date +
+      ", покрыты сутки " + it.range.from + " и " + it.range.to + "." +
+      "</details>";
   }
+
 
   /* В произвольном периоде агента нет — вместо журнала показываем параметры расчёта. */
   function drawCalcCard() {
@@ -1784,7 +1799,6 @@ footer .wrap { display: flex; gap: 16px; flex-wrap: wrap; justify-content: space
     var custom = state.src === "any";
     $("chip-range").hidden = !custom;
     $("chip-issue").hidden = custom;      /* выпуск из тестового периода тут неуместен */
-    $("seg-hz").hidden = custom;          /* горизонт задаётся диапазоном */
     $("seg-mode").hidden = custom;        /* журнала агента в этом режиме нет */
     $("go").disabled = state.busy;
     drawSimpleNote();
@@ -1838,15 +1852,12 @@ footer .wrap { display: flex; gap: 16px; flex-wrap: wrap; justify-content: space
 
     bindSeg("seg-src", function (b) {
       state.src = b.dataset.s;
-      if (state.src === "any" && !$("d-from").value) {
-        var t = todayISO();
-        $("d-from").value = t; $("d-to").value = addDays(t, 2);
+      if (state.src === "any" && !$("d-issue").value) {
+        $("d-issue").value = addDays(todayISO(), -1);   /* вчерашний выпуск: данные точно есть */
       }
     });
     $("go").addEventListener("click", runCustom);
-    ["d-from", "d-to"].forEach(function (id) {
-      $(id).addEventListener("keydown", function (ev) { if (ev.key === "Enter") runCustom(); });
-    });
+    $("d-issue").addEventListener("keydown", function (ev) { if (ev.key === "Enter") runCustom(); });
     bindSeg("seg-hz", function (b) { state.hz = Number(b.dataset.h); });
     bindSeg("seg-mode", function (b) { state.mode = b.dataset.m; });
     bindSeg("seg-mw", function (b) { state.mw = Number(b.dataset.p); });

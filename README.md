@@ -1,6 +1,5 @@
 # WindAgent — Agentic AI для прогнозирования выработки ВЭС
 
-[![CI](https://github.com/BAITC-Hacks/hack-c63c1350-technokod/actions/workflows/ci.yml/badge.svg)](https://github.com/BAITC-Hacks/hack-c63c1350-technokod/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 [![Python](https://img.shields.io/badge/python-3.14-blue.svg)](https://www.python.org/)
 [![scikit-learn](https://img.shields.io/badge/scikit--learn-1.9-orange.svg)](https://scikit-learn.org/)

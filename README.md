@@ -136,7 +136,7 @@ HTTP-сервис (`python -m app.serve`, порт из `APP_PORT`): `GET /healt
 - `python -m app.cli train` печатает по каждой турбине веса смеси и ошибку на январе 2026: nMAE 14.31 % и 14.55 % на горизонте 24 ч, 16.33 % и 16.66 % на 48 ч (`docs/metrics.json`).
 - `python -m app.cli forecast --date 2026-01-31 --no-llm` печатает трассу `get_weather → prepare_and_predict → analyze → save_forecast`, анализ и заключение; появляется `outputs/forecasts/2026-01-31.csv` на 96 строк (48 часов × 2 турбины, 13 колонок).
 - `python -m app.cli backtest --no-llm` создаёт 28 файлов выпусков, `outputs/forecast_all_issues.csv` на 2 688 строк, `outputs/forecast_feb2026.csv` на 672 часа и `outputs/backtest_summary.csv` на 28 строк. Агент выполнил повторный расчёт в четыре дня: 06.02, 15.02, 21.02, 24.02.
-- `python -m pytest -q tests` → 6 тестов проходят.
+- `python -m pytest -q tests` → 10 тестов проходят: агрегация часов, честность выборки прогноза, признаки, выпуск агента, сборка итогового ряда февраля, буревое обнуление, откат при отказе LLM, границы и ширина интервала.
 
 Проверка LLM-оркестрации: задать `OPENAI_API_KEY` в `.env` и выполнить `python -m app.cli forecast --date 2026-02-15`. Порядок вызова инструментов выбирает модель, заключение пишет она же. Результаты трёх таких выпусков сохранены в репозитории: `outputs/agent_logs_llm/2026-02-05.json`, `outputs/agent_logs_llm/2026-02-15.json`, `outputs/agent_logs_llm/2026-02-21.json` — в двух из них модель самостоятельно приняла решение о пересчёте. При ошибке сети или ключа агент откатывается на детерминированный план, это фиксируется в трассе как `llm_fallback`.
 

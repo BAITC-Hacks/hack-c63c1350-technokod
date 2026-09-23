@@ -28,7 +28,7 @@ python -m app.cli train
 ## Проверка изменений
 
 ```bash
-python -m pytest -q tests          # 6 тестов, без сети и ключей, около 2 секунд
+python -m pytest -q tests          # 10 тестов, без сети и ключей, около 3 секунд
 bash scripts/demo.sh               # полный контрольный сценарий (Windows: powershell scripts/demo.ps1)
 ```
 

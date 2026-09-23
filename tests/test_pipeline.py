@@ -35,7 +35,7 @@ def test_features_complete():
 
 
 @pytest.mark.skipif(not Path("models/turbine_1.joblib").exists(), reason="модели не обучены: python -m app.cli train")
-def test_agent_day_deterministic(tmp_path):
+def test_agent_day_deterministic(isolated_outputs):
     from app.agent import ForecastAgent
     s = ForecastAgent().run_day("2026-02-10", use_llm=False)
     assert [t["tool"] for t in s.trace][:3] == ["get_weather", "prepare_and_predict", "analyze"]

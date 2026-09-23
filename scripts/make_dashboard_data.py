@@ -4,7 +4,8 @@
 обычным <script>, а не загружаются fetch: с file:// запрос не проходит.
 
 Источники — только артефакты репозитория:
-  outputs/forecast_all_issues.csv  — 28 выпусков по часам
+  outputs/forecast_all_issues.csv  — выпуски по часам
+  архив Open-Meteo через app.weather — направление ветра и порывы
   outputs/backtest_summary.csv     — сводка по выпускам
   outputs/agent_logs/<дата>.json   — журнал детерминированного выпуска
   outputs/agent_logs_llm/<дата>.json — журнал выпуска с LLM-оркестрацией (есть не для всех дат)
@@ -24,6 +25,8 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 import pandas as pd
 
+from app.weather import FARM, forecast_available_at
+
 OUT = Path("docs/demo/dashboard-data.js")
 ISSUES_CSV = Path("outputs/forecast_all_issues.csv")
 SUMMARY_CSV = Path("outputs/backtest_summary.csv")
@@ -40,8 +43,12 @@ def _series(g: pd.DataFrame, col: str) -> list:
     return [_round(v) for v in g[col].tolist()]
 
 
-def build_issue(day: str, g: pd.DataFrame, prev: pd.DataFrame | None) -> dict:
-    """Один выпуск: 48 часов, обе турбины, коридор по станции и вчерашний выпуск."""
+def build_issue(day: str, g: pd.DataFrame, prev: pd.DataFrame | None, weather: pd.DataFrame | None = None) -> dict:
+    """Один выпуск: 48 часов, обе турбины, коридор по станции и вчерашний выпуск.
+
+    weather — кадр архивного прогноза на ту же дату: из него берутся направление ветра
+    и порывы, которых нет в таблице выпусков, но которые нужны витрине.
+    """
     g = g.sort_values(["ts", "turbine"])
     t1 = g[g["turbine"] == 1].sort_values("ts")
     t2 = g[g["turbine"] == 2].sort_values("ts")
@@ -56,11 +63,18 @@ def build_issue(day: str, g: pd.DataFrame, prev: pd.DataFrame | None) -> dict:
         if 1 in pv.columns and 2 in pv.columns:
             pv = ((pv[1] + pv[2]) / 2).to_dict()
             prev_farm = [_round(pv.get(pd.Timestamp(v))) for v in t1["ts"]]
+    direction, gusts = [None] * len(ts), [None] * len(ts)
+    if weather is not None and len(weather):
+        w = weather.set_index("ts")
+        direction = [_round(w["wind_direction_100m"].get(pd.Timestamp(v)), 0) for v in t1["ts"]]
+        gusts = [_round(w["wind_gusts_10m"].get(pd.Timestamp(v)), 1) for v in t1["ts"]]
     return {
         "issue_date": day,
         "ts": ts,
         "lead_day": [int(v) for v in t1["lead_day"]],
         "wind": _series(t1, "wind_speed_100m"),
+        "wind_dir": direction,
+        "gust": gusts,
         "t1": _series(t1, "power_norm_pred"),
         "t2": _series(t2, "power_norm_pred"),
         "farm": [_round(v) for v in farm],
@@ -111,7 +125,11 @@ def main() -> None:
     issues = []
     for i, day in enumerate(days):
         prev = by_day.get(days[i - 1]) if i else None
-        item = build_issue(day, by_day[day], prev)
+        try:
+            wx = forecast_available_at(FARM, day, 48)
+        except Exception:  # кэш не покрывает дату — витрина обойдётся без направления
+            wx = None
+        item = build_issue(day, by_day[day], prev, wx)
         row = summary[summary["issue_date"].astype(str) == day]
         item["summary"] = {k: (None if pd.isna(v) else (bool(v) if isinstance(v, bool) else v))
                            for k, v in (row.iloc[0].to_dict().items() if len(row) else [])}
@@ -127,6 +145,7 @@ def main() -> None:
             "timezone": "Asia/Almaty",
         },
         "model": model_version(),
+        "thresholds": {"cut_in": 3.0, "rated": 11.5, "storm": 22.0},
         "issues": issues,
     }
     OUT.parent.mkdir(parents=True, exist_ok=True)

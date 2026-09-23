@@ -129,3 +129,22 @@ def training_weather(site: Site, start: str, end: str) -> pd.DataFrame:
         y1 = min(end, f"{year}-12-31")
         frames.append(historical_forecast(site, y0, y1))
     return pd.concat(frames, ignore_index=True).drop_duplicates("ts")
+
+
+def previous_runs_training(site: Site, start: str = "2024-02-16", end: str = "2026-01-31") -> pd.DataFrame:
+    """Обучающая погода из Previous Runs: на каждый час два примера, прогноз за 1 и за 2 дня.
+    Распределение признаков совпадает с тем, что модель увидит в тесте."""
+    frames = []
+    for year in range(int(start[:4]), int(end[:4]) + 1):
+        y0 = max(start, f"{year}-01-01")
+        y1 = min(end, f"{year}-12-31")
+        frames.append(previous_runs(site, y0, y1))
+    pr = pd.concat(frames, ignore_index=True).drop_duplicates("ts")
+    rows = []
+    for lead in (1, 2):
+        d = pr[["ts"]].copy()
+        for v in BASE_VARS:
+            d[v] = pr[f"{v}_previous_day{lead}"]
+        d["lead_day"] = lead
+        rows.append(d)
+    return pd.concat(rows, ignore_index=True).dropna(subset=["wind_speed_100m"]).reset_index(drop=True)

@@ -77,6 +77,18 @@ def available() -> bool:
     return bool(settings.openai_api_key)
 
 
+USAGE = {"calls": 0, "prompt_tokens": 0, "completion_tokens": 0}
+
+
+def _account(resp) -> None:
+    """Счётчик токенов за процесс: нужен для отчёта о стоимости прогона."""
+    u = getattr(resp, "usage", None)
+    USAGE["calls"] += 1
+    if u is not None:
+        USAGE["prompt_tokens"] += int(getattr(u, "prompt_tokens", 0) or 0)
+        USAGE["completion_tokens"] += int(getattr(u, "completion_tokens", 0) or 0)
+
+
 def chat_tools(
     messages: list[dict[str, Any]],
     tools: list[dict[str, Any]],
@@ -93,6 +105,7 @@ def chat_tools(
     resp = _client().chat.completions.create(
         model=_model(reasoning), messages=messages, tools=tools, temperature=temperature
     )
+    _account(resp)
     msg = resp.choices[0].message
     calls = [
         {"id": tc.id, "name": tc.function.name, "arguments": tc.function.arguments}

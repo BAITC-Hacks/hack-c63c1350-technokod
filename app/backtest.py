@@ -13,7 +13,7 @@ from pathlib import Path
 
 import pandas as pd
 
-from app.agent import WindAgent
+from app.agent import ForecastAgent
 
 RESULT_DIR = Path("outputs")
 # Обязательные колонки таблицы выпусков; необязательные (интервалы, компоненты смеси)
@@ -62,7 +62,7 @@ def backtest(
 
     Сводка по дням и журналы кладутся в `attrs`, чтобы run() записал их без повторного прогона.
     """
-    agent = WindAgent(turbines=turbines, use_llm=use_llm, horizon_hours=horizon_hours)
+    agent = ForecastAgent(turbines=turbines, use_llm=use_llm, horizon_hours=horizon_hours)
     frames: list[pd.DataFrame] = []
     summaries: list[dict] = []
     logs: list[dict] = []
@@ -122,8 +122,13 @@ def run(
     final = build_submission(allf)
     RESULT_DIR.mkdir(exist_ok=True)
     cols = ISSUE_COLS + [c for c in EXTRA_COLS if c in allf.columns]
-    allf[cols].to_csv(RESULT_DIR / "forecast_all_issues.csv", index=False)
-    final.to_csv(RESULT_DIR / "forecast_feb2026.csv", index=False)
+    # округление до 4 знаков: значения нормированы на 1, дальше точности нет физического смысла
+    issues_out = allf[cols].copy()
+    issues_out[issues_out.select_dtypes("float").columns] = issues_out.select_dtypes("float").round(4)
+    issues_out.to_csv(RESULT_DIR / "forecast_all_issues.csv", index=False)
+    final_out = final.copy()
+    final_out[final_out.select_dtypes("float").columns] = final_out.select_dtypes("float").round(4)
+    final_out.to_csv(RESULT_DIR / "forecast_feb2026.csv", index=False)
     pd.DataFrame(summaries).to_csv(RESULT_DIR / "backtest_summary.csv", index=False)
     (RESULT_DIR / "backtest_summary.json").write_text(
         json.dumps(logs, ensure_ascii=False, indent=2, default=str), encoding="utf-8"

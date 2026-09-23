@@ -101,7 +101,9 @@ class GenerationModel:
         out["power_norm_pred"] = (
             w["gbm"] * out["power_gbm_pred"] + w["two_stage"] * out["power_two_stage_pred"] + w["curve"] * out["power_curve_pred"]
         )
-        lead = out["lead_day"] if "lead_day" in out.columns else pd.Series(1, index=out.index)
+        # лид берётся из входного кадра: в out колонка lead_day появляется ниже, и до правки
+        # интервал на горизонте 48 часов считался по квантилям суточного лида
+        lead = df["lead_day"] if "lead_day" in df.columns else pd.Series(1, index=df.index)
         lo, hi = [], []
         for pred, ld in zip(out["power_norm_pred"], lead):
             q10, q90 = self.residual_quantiles.get((int(ld), level_bin(pred)), (-0.25, 0.25))

@@ -20,6 +20,7 @@ outputs/*
 !outputs/forecast_all_issues.csv
 !outputs/backtest_summary.csv
 !outputs/agent_logs/
+!outputs/agent_logs_llm/
 # os / ide
 .DS_Store
 Thumbs.db

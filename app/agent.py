@@ -9,8 +9,9 @@
   5. save_forecast      — запись результата и журнала действий агента
 
 Оркестрация: LLM (OpenAI, резерв NVIDIA NIM) вызывает инструменты через function calling и пишет
-заключение. Без ключа или в DEMO_MODE тот же цикл выполняет детерминированный планировщик,
-а заключение берётся из кэша ответов. Инструменты одинаковы в обоих режимах.
+заключение. Без ключа, при ошибке провайдера и в DEMO_MODE тот же цикл выполняет детерминированный
+планировщик, а заключение собирается по числам анализа шаблоном. Инструменты в обоих режимах одни
+и те же, поэтому числовой результат выпуска от наличия ключа не зависит.
 """
 from __future__ import annotations
 
@@ -19,18 +20,26 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Callable
 
-import numpy as np
 import pandas as pd
 
-from app.config import settings
 from app.model import GenerationModel
 from app.weather import FARM, forecast_available_at
 
 OUT_DIR = Path("outputs/forecasts")
 LOG_DIR = Path("outputs/agent_logs")
-CUT_IN = 3.0
-RATED = 11.5
-STORM = 22.0
+CUT_IN = 3.0  # м/с, ниже — турбина не запускается
+RATED = 11.5  # м/с, выше — полка номинальной мощности
+STORM = 22.0  # м/с, выше — отключение по буревой защите
+UPDATE_THRESHOLD = 0.15  # среднее изменение прогноза против вчерашнего выпуска, выше — пересчёт
+
+# Колонки выпуска. Первые пять — ключ, дальше прогноз смеси, компоненты и интервал.
+FORECAST_COLUMNS = [
+    "issue_date", "ts", "horizon_hour", "lead_day", "turbine",
+    "wind_speed_100m", "power_norm_pred", "power_p10", "power_p90",
+    "power_gbm_pred", "power_two_stage_pred", "power_curve_pred", "wind_nacelle_pred",
+]
+
+_UNSET = object()
 
 
 @dataclass
@@ -43,16 +52,49 @@ class AgentState:
     recalculated: bool = False
     trace: list[dict] = field(default_factory=list)
     conclusion: str = ""
+    previous: pd.DataFrame | None = None  # выпуск предыдущего дня для детектора обновления
+    llm_used: bool = False  # порядок инструментов выбрала модель, отката не было
+
+    # синонимы: бэктест и сервис читают результат как tool_trace / narrative / recomputed
+    @property
+    def tool_trace(self) -> list[dict]:
+        return self.trace
+
+    @property
+    def narrative(self) -> str:
+        return self.conclusion
+
+    @property
+    def recomputed(self) -> bool:
+        return self.recalculated
 
 
 class ForecastAgent:
-    def __init__(self, models: dict[int, GenerationModel] | None = None):
+    """Агент выпуска прогноза. Один экземпляр обслуживает любое число дат.
+
+    Параметры задаются при создании, отдельный выпуск может их переопределить:
+        agent = ForecastAgent(use_llm=False)
+        state = agent.run_day("2026-02-05", previous=вчерашний_выпуск)
+    """
+
+    def __init__(
+        self,
+        turbines: tuple[int, ...] = (1, 2),
+        use_llm: bool | None = None,
+        horizon_hours: int = 48,
+        max_steps: int = 10,
+        models: dict[int, GenerationModel] | None = None,
+    ) -> None:
+        self.turbines = tuple(turbines)
         if models is None:
-            missing = [t for t in (1, 2) if not (Path("models") / f"turbine_{t}.joblib").exists()]
+            missing = [t for t in self.turbines if not (Path("models") / f"turbine_{t}.joblib").exists()]
             if missing:
                 raise RuntimeError("Модели не обучены. Выполните: python -m app.cli train")
-            models = {t: GenerationModel.load(t) for t in (1, 2)}
-        self.models = models
+            models = {t: GenerationModel.load(t) for t in self.turbines}
+        self.models = {t: m for t, m in models.items() if t in self.turbines}
+        self.use_llm = use_llm
+        self.horizon_hours = horizon_hours
+        self.max_steps = max_steps
         self.tools: dict[str, Callable[..., dict]] = {
             "get_weather": self.get_weather,
             "prepare_and_predict": self.prepare_and_predict,
@@ -64,149 +106,269 @@ class ForecastAgent:
 
     # ---------- инструменты ----------
     def _log(self, tool: str, result: dict) -> dict:
-        assert self.state is not None
         self.state.trace.append({"tool": tool, "result": result})
         return result
 
-    def get_weather(self) -> dict:
+    def get_weather(self, issue_date: str | None = None) -> dict:
+        """Архивный прогноз на 24–48 часов, каким он был на дату выпуска. Факт погоды не используется."""
         s = self.state
-        s.weather = forecast_available_at(FARM, s.issue_date, s.horizon_hours)
+        s.weather = forecast_available_at(FARM, issue_date or s.issue_date, s.horizon_hours)
         w = s.weather
         return self._log("get_weather", {
             "hours": int(len(w)), "from": str(w["ts"].min()), "to": str(w["ts"].max()),
-            "ws100_mean": round(float(w["wind_speed_100m"].mean()), 2),
-            "ws100_max": round(float(w["wind_speed_100m"].max()), 2),
-            "lead_days": sorted(w["lead_day"].unique().tolist()),
+            "lead1_hours": int((w["lead_day"] == 1).sum()), "lead2_hours": int((w["lead_day"] == 2).sum()),
+            "ws100_min": round(float(w["wind_speed_100m"].min()), 1),
+            "ws100_mean": round(float(w["wind_speed_100m"].mean()), 1),
+            "ws100_max": round(float(w["wind_speed_100m"].max()), 1),
+            "temp_min": round(float(w["temperature_2m"].min()), 1),
+            "temp_max": round(float(w["temperature_2m"].max()), 1),
+            "source": "Open-Meteo Previous Runs, выпуск не позже даты прогноза",
         })
 
     def prepare_and_predict(self) -> dict:
+        """Признаки и прогноз выработки по каждой турбине на весь горизонт."""
         s = self.state
+        if s.weather is None:
+            return self._log("prepare_and_predict", {"error": "погода не получена, сначала вызовите get_weather"})
         frames = []
         for t, model in self.models.items():
             p = model.predict(s.weather)
             p["turbine"] = t
             frames.append(p)
-        s.forecast = pd.concat(frames, ignore_index=True)
-        summary = {
-            f"turbine_{t}_mean": round(float(g["power_norm_pred"].mean()), 3)
-            for t, g in s.forecast.groupby("turbine")
-        }
-        summary["hours"] = int(s.forecast["ts"].nunique())
-        return self._log("prepare_and_predict", summary)
+        f = pd.concat(frames, ignore_index=True)
+        # ключевые колонки выпуска проставляются сразу: их читает и бэктест, и запись на диск
+        issue = pd.Timestamp(s.issue_date).normalize()
+        f["issue_date"] = s.issue_date
+        f["horizon_hour"] = ((f["ts"] - issue - pd.Timedelta(days=1)).dt.total_seconds() // 3600 + 1).astype(int)
+        f = f.merge(s.weather[["ts", "wind_speed_100m"]], on="ts", how="left")
+        s.forecast = f
+        mean_cf = {str(t): round(float(g["power_norm_pred"].mean()), 3) for t, g in f.groupby("turbine")}
+        return self._log("prepare_and_predict", {
+            "hours": int(f["ts"].nunique()),
+            "rows": int(len(f)),
+            "mean_cf": mean_cf,
+            "energy_norm_h": {str(t): round(float(g["power_norm_pred"].sum()), 1) for t, g in f.groupby("turbine")},
+        })
 
     def analyze(self) -> dict:
+        """Проверка выпуска и детектор обновления входных данных относительно вчерашнего прогноза."""
         s = self.state
+        if s.weather is None or s.forecast is None:
+            return self._log("analyze", {"error": "нечего анализировать, сначала get_weather и prepare_and_predict"})
         w, f = s.weather, s.forecast
         calm = int((w["wind_speed_100m"] < CUT_IN).sum())
         rated = int((w["wind_speed_100m"] >= RATED).sum())
         storm = int((w["wind_speed_100m"] >= STORM).sum())
-        spread = float((f.groupby("ts")["power_norm_pred"].max() - f.groupby("ts")["power_norm_pred"].min()).max())
-        # сравнение с прогнозом предыдущего дня на пересекающиеся часы (часы 24–48 вчера = часы 0–24 сегодня)
-        prev_path = OUT_DIR / f"{(pd.Timestamp(s.issue_date) - pd.Timedelta(days=1)).date()}.csv"
+        by_ts = f.groupby("ts")["power_norm_pred"]
+        spread = float((by_ts.max() - by_ts.min()).max())
+        # сравнение с выпуском предыдущего дня на пересекающиеся часы:
+        # часы 25–48 вчерашнего выпуска — это часы 1–24 сегодняшнего
+        prev = s.previous
+        if prev is None:
+            prev_path = OUT_DIR / f"{(pd.Timestamp(s.issue_date) - pd.Timedelta(days=1)).date()}.csv"
+            if prev_path.exists():
+                prev = pd.read_csv(prev_path, parse_dates=["ts"])
         update = None
-        if prev_path.exists():
-            prev = pd.read_csv(prev_path, parse_dates=["ts"])
-            merged = f.merge(prev, on=["ts", "turbine"], suffixes=("", "_prev"))
+        if prev is not None and len(prev):
+            merged = f.merge(prev[["ts", "turbine", "power_norm_pred"]], on=["ts", "turbine"], suffixes=("", "_prev"))
             if len(merged):
                 diff = (merged["power_norm_pred"] - merged["power_norm_pred_prev"]).abs()
-                update = {"overlap_hours": int(merged["ts"].nunique()), "mean_abs_change": round(float(diff.mean()), 3),
-                          "max_abs_change": round(float(diff.max()), 3)}
+                update = {
+                    "overlap_hours": int(merged["ts"].nunique()),
+                    "mean_abs_change": round(float(diff.mean()), 3),
+                    "max_abs_change": round(float(diff.max()), 3),
+                }
+        mean_change = update["mean_abs_change"] if update else None
         s.analysis = {
-            "calm_hours": calm, "rated_hours": rated, "storm_hours": storm,
-            "turbine_spread_max": round(spread, 3), "input_update_vs_previous_issue": update,
-            "needs_recalculation": bool(storm > 0 or (update and update["mean_abs_change"] > 0.15)),
+            "calm_hours": calm,
+            "rated_hours": rated,
+            "storm_hours": storm,
+            "turbine_spread_max": round(spread, 3),
+            "mean_cf": {str(t): round(float(g["power_norm_pred"].mean()), 3) for t, g in f.groupby("turbine")},
+            "input_update_vs_previous_issue": update,
+            "input_change_vs_previous_issue": mean_change,
+            "update_threshold": UPDATE_THRESHOLD,
+            "needs_recalculation": bool(storm > 0 or (mean_change is not None and mean_change > UPDATE_THRESHOLD)),
         }
         return self._log("analyze", s.analysis)
 
     def recalculate(self, reason: str = "") -> dict:
-        """Повторный расчёт: заново берём погоду (кэш обновится, если источник изменился) и пересчитываем.
-        При штормовых часах применяем ограничение по отключению турбины."""
+        """Повторный расчёт выпуска: источник прогноза опрашивается заново, модель считается заново,
+        штормовые часы обнуляются (буревая защита турбины).
+
+        В бэктесте по архиву повторный запрос возвращает тот же срез архива, поэтому фиксируется,
+        изменились ли входные данные фактически: это видно в поле input_changed журнала.
+        """
         s = self.state
+        if s.weather is None:
+            return self._log("recalculate", {"error": "нечего пересчитывать, сначала get_weather"})
+        before = s.weather["wind_speed_100m"].to_numpy(copy=True)
         s.weather = forecast_available_at(FARM, s.issue_date, s.horizon_hours)
+        after = s.weather["wind_speed_100m"].to_numpy()
+        input_changed = bool(len(before) != len(after) or (abs(before - after) > 1e-9).any())
         self.prepare_and_predict()
         storm_mask = s.weather.set_index("ts")["wind_speed_100m"] >= STORM
+        zeroed = 0
         if storm_mask.any():
             idx = s.forecast["ts"].map(storm_mask).fillna(False).astype(bool)
-            s.forecast.loc[idx, "power_norm_pred"] = 0.0
+            # обнуляем прогноз целиком, иначе компоненты смеси противоречат итогу
+            power_cols = [c for c in s.forecast.columns if c.startswith("power_")]
+            s.forecast.loc[idx, power_cols] = 0.0
+            zeroed = int(idx.sum())
         s.recalculated = True
-        return self._log("recalculate", {"reason": reason, "storm_hours_zeroed": int(storm_mask.sum())})
+        return self._log("recalculate", {
+            "reason": reason,
+            "input_changed": input_changed,
+            "storm_hours": int(storm_mask.sum()),
+            "rows_zeroed": zeroed,
+        })
 
     def save_forecast(self) -> dict:
+        """Запись выпуска на диск. До этого вызова прогноз считается невыпущенным."""
         s = self.state
+        if s.forecast is None:
+            return self._log("save_forecast", {"error": "прогноза нет, сначала prepare_and_predict"})
         OUT_DIR.mkdir(parents=True, exist_ok=True)
-        LOG_DIR.mkdir(parents=True, exist_ok=True)
-        out = s.forecast.copy()
-        out["issue_date"] = s.issue_date
-        out["horizon_hour"] = ((out["ts"] - pd.Timestamp(s.issue_date).normalize() - pd.Timedelta(days=1)).dt.total_seconds() // 3600 + 1).astype(int)
-        cols = ["issue_date", "ts", "horizon_hour", "lead_day", "turbine", "power_norm_pred", "power_gbm_pred", "power_two_stage_pred", "power_curve_pred", "wind_nacelle_pred"]
+        cols = [c for c in FORECAST_COLUMNS if c in s.forecast.columns]
         path = OUT_DIR / f"{s.issue_date}.csv"
-        out[cols].sort_values(["turbine", "ts"]).to_csv(path, index=False)
-        log = {"issue_date": s.issue_date, "recalculated": s.recalculated, "analysis": s.analysis,
-               "conclusion": s.conclusion, "trace": s.trace}
-        (LOG_DIR / f"{s.issue_date}.json").write_text(json.dumps(log, ensure_ascii=False, indent=2, default=str), encoding="utf-8")
-        return self._log("save_forecast", {"path": str(path), "rows": int(len(out))})
+        out = s.forecast[cols].sort_values(["turbine", "ts"]).copy()
+        out[out.select_dtypes("float").columns] = out.select_dtypes("float").round(4)
+        out.to_csv(path, index=False)
+        return self._log("save_forecast", {"path": str(path), "rows": int(len(s.forecast))})
 
     # ---------- оркестрация ----------
-    def run_day(self, issue_date: str, horizon_hours: int = 48, use_llm: bool | None = None) -> AgentState:
-        self.state = AgentState(issue_date=issue_date, horizon_hours=horizon_hours)
+    def run_day(
+        self,
+        issue_date: str,
+        previous: pd.DataFrame | None = None,
+        horizon_hours: int | None = None,
+        use_llm: bool | None = _UNSET,  # type: ignore[assignment]
+    ) -> AgentState:
+        """Один выпуск: полный цикл инструментов, журнал и сохранение.
+
+        use_llm=None — автоматически: оркеструет модель, если задан ключ провайдера.
+        """
         from app.llm import available
 
-        llm_ok = available() if use_llm is None else (use_llm and available())
+        self.state = AgentState(
+            issue_date=issue_date,
+            horizon_hours=horizon_hours or self.horizon_hours,
+            previous=previous,
+        )
+        want_llm = self.use_llm if use_llm is _UNSET else use_llm
+        llm_ok = available() if want_llm is None else (bool(want_llm) and available())
         if llm_ok:
             try:
                 self._run_with_llm()
+                self.state.llm_used = True
             except Exception as e:  # сеть, лимиты, ключ: откат на детерминированный план
                 self.state.trace.append({"tool": "llm_fallback", "result": {"error": str(e)[:200]}})
                 self._run_deterministic()
         else:
             self._run_deterministic()
+        # страховка: модель могла не вызвать анализ или сохранение — выпуск всё равно должен быть полным
+        if self.state.forecast is not None and not self.state.analysis:
+            self.analyze()
         if self.state.forecast is not None and not any(t["tool"] == "save_forecast" for t in self.state.trace):
             self.save_forecast()
+        self._write_log()  # заключение модели появляется после инструментов, журнал пишем в конце
         return self.state
 
+    def _write_log(self) -> None:
+        """Журнал выпуска целиком: анализ, полная трасса и итоговое заключение."""
+        s = self.state
+        if s is None or s.forecast is None:
+            return
+        LOG_DIR.mkdir(parents=True, exist_ok=True)
+        log = {
+            "issue_date": s.issue_date,
+            "llm_used": s.llm_used,
+            "recalculated": s.recalculated,
+            "analysis": s.analysis,
+            "conclusion": s.conclusion,
+            "trace": s.trace,
+        }
+        (LOG_DIR / f"{s.issue_date}.json").write_text(
+            json.dumps(log, ensure_ascii=False, indent=2, default=str), encoding="utf-8"
+        )
+
     def _run_deterministic(self) -> None:
+        """Тот же цикл без модели: порядок инструментов фиксирован."""
         self.get_weather()
         self.prepare_and_predict()
         a = self.analyze()
-        if a["needs_recalculation"]:
+        if a.get("needs_recalculation"):
             self.recalculate(reason="обновление входных данных или штормовые часы")
         self.state.conclusion = self._template_conclusion()
         self.save_forecast()
 
     def _template_conclusion(self) -> str:
-        s, a = self.state, self.state.analysis
+        s = self.state
+        a = s.analysis or {}
+        if s.forecast is None:
+            return f"Выпуск {s.issue_date} не состоялся: прогноз не рассчитан."
         means = {t: round(float(g["power_norm_pred"].mean()), 2) for t, g in s.forecast.groupby("turbine")}
-        upd = a.get("input_update_vs_previous_issue")
+        energy = {t: round(float(g["power_norm_pred"].sum()), 1) for t, g in s.forecast.groupby("turbine")}
         txt = (f"Прогноз на {s.horizon_hours} ч от {s.issue_date}: средняя нормализованная мощность "
-               f"T1 {means.get(1)}, T2 {means.get(2)}. Часов штиля {a['calm_hours']}, часов на номинале {a['rated_hours']}, "
-               f"штормовых {a['storm_hours']}.")
+               f"T1 {means.get(1)}, T2 {means.get(2)}; ожидаемая выработка {energy.get(1)} и {energy.get(2)} норм·ч.")
+        if a:
+            txt += (f" Часов штиля {a.get('calm_hours')}, часов на номинале {a.get('rated_hours')}, "
+                    f"штормовых {a.get('storm_hours')}.")
+        upd = a.get("input_update_vs_previous_issue")
         if upd:
-            txt += f" Относительно прогноза предыдущего дня входные данные изменились на {upd['mean_abs_change']} в среднем."
-        if s.recalculated:
-            txt += " Выполнен повторный расчёт."
+            txt += (f" Относительно прогноза предыдущего дня входные данные изменились в среднем на "
+                    f"{upd['mean_abs_change']} при пороге пересчёта {UPDATE_THRESHOLD}.")
+        txt += " Выполнен повторный расчёт." if s.recalculated else " Пересчёт не потребовался."
         return txt
 
     def _run_with_llm(self) -> None:
-        """Оркестрация моделью через function calling (app.llm.chat_tools)."""
+        """Оркестрация моделью через function calling (app.llm.chat_tools).
+
+        Порядок инструментов выбирает модель. Ошибка инструмента возвращается модели как результат,
+        чтобы она исправилась сама, а не роняла весь выпуск в откат.
+        """
         from app.llm import chat_tools
 
         tool_specs = [
-            {"type": "function", "function": {"name": "get_weather", "description": "Получить архивный прогноз погоды по координатам ВЭС, доступный на дату прогноза", "parameters": {"type": "object", "properties": {}}}},
-            {"type": "function", "function": {"name": "prepare_and_predict", "description": "Подготовить признаки и запустить модель выработки для обеих турбин", "parameters": {"type": "object", "properties": {}}}},
-            {"type": "function", "function": {"name": "analyze", "description": "Проанализировать прогноз: штиль, номинал, шторм, изменение входных данных относительно прошлого выпуска", "parameters": {"type": "object", "properties": {}}}},
-            {"type": "function", "function": {"name": "recalculate", "description": "Повторный расчёт при обновлении входных данных или аномалиях", "parameters": {"type": "object", "properties": {"reason": {"type": "string"}}}}},
-            {"type": "function", "function": {"name": "save_forecast", "description": "Сохранить итоговый прогноз и журнал", "parameters": {"type": "object", "properties": {}}}},
+            {"type": "function", "function": {
+                "name": "get_weather",
+                "description": "Получить архивный прогноз погоды по координатам ВЭС, доступный на дату выпуска. Вызывать первым.",
+                "parameters": {"type": "object", "properties": {"issue_date": {"type": "string", "description": "дата выпуска, по умолчанию текущая"}}}}},
+            {"type": "function", "function": {
+                "name": "prepare_and_predict",
+                "description": "Подготовить признаки и запустить модель выработки для обеих турбин. Требует выполненного get_weather.",
+                "parameters": {"type": "object", "properties": {}}}},
+            {"type": "function", "function": {
+                "name": "analyze",
+                "description": "Проанализировать выпуск: часы штиля, номинала, шторма, расхождение с прогнозом предыдущего дня. Возвращает needs_recalculation.",
+                "parameters": {"type": "object", "properties": {}}}},
+            {"type": "function", "function": {
+                "name": "recalculate",
+                "description": "Повторно опросить источник прогноза, пересчитать выработку и применить буревую защиту. Вызывать при needs_recalculation.",
+                "parameters": {"type": "object", "properties": {"reason": {"type": "string"}}}}},
+            {"type": "function", "function": {
+                "name": "save_forecast",
+                "description": "Сохранить выпуск и журнал. Обязателен: без него прогноз не выпущен.",
+                "parameters": {"type": "object", "properties": {}}}},
         ]
         messages: list[dict[str, Any]] = [
             {"role": "system", "content": (
-                "Ты агент прогнозирования выработки ветроэлектростанции. Выполни полный цикл инструментами: "
-                "погода, прогноз, анализ, при необходимости пересчёт, сохранение. Решение о пересчёте принимай по полю "
-                "needs_recalculation и здравому смыслу. В конце дай короткое заключение на русском (3–5 предложений): "
-                "ожидаемая выработка по турбинам, риски (штиль, шторм), изменилось ли что-то относительно прошлого выпуска."
+                "Ты агент прогнозирования выработки ветроэлектростанции из двух турбин в Шелекском коридоре. "
+                "Выполни полный цикл выпуска инструментами: получить прогноз погоды, рассчитать выработку, "
+                "проанализировать результат, при необходимости пересчитать, обязательно сохранить. "
+                "Жёсткое правило задачи: разрешено использовать только прогноз погоды, доступный на дату выпуска; "
+                "фактическая погода и фактическая выработка за прогнозируемые сутки недоступны и использовать их нельзя. "
+                "Решение о пересчёте принимай по полю needs_recalculation и по числам анализа. "
+                "Пока не вызван save_forecast, прогноз не выпущен. "
+                "В конце дай короткое заключение на русском (3–5 предложений): ожидаемая выработка по турбинам, "
+                "риски (штиль, шторм), изменилось ли что-то относительно прошлого выпуска и потребовался ли пересчёт."
             )},
-            {"role": "user", "content": f"Дата прогноза {self.state.issue_date}, горизонт {self.state.horizon_hours} часов."},
+            {"role": "user", "content": (
+                f"Дата выпуска {self.state.issue_date}, горизонт {self.state.horizon_hours} часов, "
+                f"турбины {', '.join(str(t) for t in self.turbines)}."
+            )},
         ]
-        for _ in range(10):
+        for _ in range(self.max_steps):
             step = chat_tools(messages, tool_specs, temperature=0)
             if not step["tool_calls"]:
                 self.state.conclusion = step["content"] or self._template_conclusion()
@@ -216,9 +378,14 @@ class ForecastAgent:
                 for c in step["tool_calls"]
             ]})
             for c in step["tool_calls"]:
-                args = json.loads(c["arguments"] or "{}")
                 fn = self.tools.get(c["name"])
-                result = fn(**args) if fn else {"error": f"неизвестный инструмент {c['name']}"}
-                messages.append({"role": "tool", "tool_call_id": c["id"], "content": json.dumps(result, ensure_ascii=False, default=str)})
+                try:
+                    args = json.loads(c["arguments"] or "{}")
+                    result = fn(**args) if fn else {"error": f"неизвестный инструмент {c['name']}"}
+                except Exception as e:  # ошибку инструмента модель видит и исправляет сама
+                    result = {"error": str(e)[:200]}
+                    self.state.trace.append({"tool": c["name"], "result": result})
+                messages.append({"role": "tool", "tool_call_id": c["id"],
+                                 "content": json.dumps(result, ensure_ascii=False, default=str)})
         if not self.state.conclusion:
             self.state.conclusion = self._template_conclusion()

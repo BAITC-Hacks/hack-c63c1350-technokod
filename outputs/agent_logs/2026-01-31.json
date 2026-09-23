@@ -1,15 +1,22 @@
 {
   "issue_date": "2026-01-31",
+  "llm_used": false,
   "recalculated": false,
   "analysis": {
     "calm_hours": 8,
     "rated_hours": 0,
     "storm_hours": 0,
-    "turbine_spread_max": 0.149,
+    "turbine_spread_max": 0.056,
+    "mean_cf": {
+      "1": 0.249,
+      "2": 0.246
+    },
     "input_update_vs_previous_issue": null,
+    "input_change_vs_previous_issue": null,
+    "update_threshold": 0.15,
     "needs_recalculation": false
   },
-  "conclusion": "Прогноз на 48 ч от 2026-01-31: средняя нормализованная мощность T1 0.26, T2 0.24. Часов штиля 8, часов на номинале 0, штормовых 0.",
+  "conclusion": "Прогноз на 48 ч от 2026-01-31: средняя нормализованная мощность T1 0.25, T2 0.25; ожидаемая выработка 12.0 и 11.8 норм·ч. Часов штиля 8, часов на номинале 0, штормовых 0. Пересчёт не потребовался.",
   "trace": [
     {
       "tool": "get_weather",
@@ -17,20 +24,29 @@
         "hours": 48,
         "from": "2026-02-01 00:00:00",
         "to": "2026-02-02 23:00:00",
-        "ws100_mean": 4.85,
+        "lead1_hours": 24,
+        "lead2_hours": 24,
+        "ws100_min": 0.2,
+        "ws100_mean": 4.9,
         "ws100_max": 9.0,
-        "lead_days": [
-          1,
-          2
-        ]
+        "temp_min": -2.5,
+        "temp_max": 8.7,
+        "source": "Open-Meteo Previous Runs, выпуск не позже даты прогноза"
       }
     },
     {
       "tool": "prepare_and_predict",
       "result": {
-        "turbine_1_mean": 0.257,
-        "turbine_2_mean": 0.241,
-        "hours": 48
+        "hours": 48,
+        "rows": 96,
+        "mean_cf": {
+          "1": 0.249,
+          "2": 0.246
+        },
+        "energy_norm_h": {
+          "1": 12.0,
+          "2": 11.8
+        }
       }
     },
     {
@@ -39,9 +55,22 @@
         "calm_hours": 8,
         "rated_hours": 0,
         "storm_hours": 0,
-        "turbine_spread_max": 0.149,
+        "turbine_spread_max": 0.056,
+        "mean_cf": {
+          "1": 0.249,
+          "2": 0.246
+        },
         "input_update_vs_previous_issue": null,
+        "input_change_vs_previous_issue": null,
+        "update_threshold": 0.15,
         "needs_recalculation": false
+      }
+    },
+    {
+      "tool": "save_forecast",
+      "result": {
+        "path": "outputs\\forecasts\\2026-01-31.csv",
+        "rows": 96
       }
     }
   ]

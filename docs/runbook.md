@@ -40,7 +40,10 @@ docker compose build
 docker compose run --rm app python -m app.cli check
 docker compose run --rm app python -m app.cli train
 docker compose run --rm app python -m app.cli forecast --date 2026-02-10 --no-llm
+docker compose up                      # HTTP-сервис на порту 8000 (команда образа по умолчанию)
 ```
+
+Образ по умолчанию запускает HTTP-сервис (`python -m app.serve`), порт 8000 проброшен в `docker-compose.yml`. Проверка живости — `GET /health`: отвечает, обучены ли модели и какой провайдер LLM настроен. Ставьте её в мониторинг как основной health-check.
 
 Файл `.env` обязателен, его требует `docker-compose.yml`; допустимо создать его из `.env.example` с пустым ключом. В текущем `docker-compose.yml` пробрасывается только `./data`, поэтому модели и результаты остаются внутри контейнера — при развёртывании добавьте тома:
 
@@ -85,7 +88,7 @@ schtasks /Create /TN "WindAgent forecast" /SC DAILY /ST 05:40 /RI 360 /DU 24:00 
 | Полный цикл агента | `outputs/agent_logs/<дата>.json`, ключ `trace` | присутствуют `get_weather`, `prepare_and_predict`, `analyze`, `save_forecast` |
 | Число пересчётов | `recalculated` в журнале, `recomputed` в сводке | единичные случаи; каждый день подряд — повод разобраться с источником погоды |
 | Доля часов с данными | `hours` в сводке выпуска | 48 часов на выпуск, 96 строк на две турбины |
-| Работа LLM | `llm_used` в журнале, наличие `llm_fallback` в трассе | откаты единичны; постоянный `llm_fallback` — проблема с ключом, лимитом или сетью |
+| Работа LLM | наличие записи `llm_fallback` в трассе журнала (и поле `llm_used`, если оно есть) | откаты единичны; постоянный `llm_fallback` — проблема с ключом, лимитом или сетью |
 | Свежесть кэша погоды | время изменения файлов в `data/cache/weather/` | появляются новые файлы в дни выпусков |
 | Ошибка последних 7 суток | сравнение `outputs/forecast_all_issues.csv` с фактом выработки после его поступления | MAE того же порядка, что на валидации: около 0.15 на горизонте 24 ч |
 | Эталон качества | `docs/metrics.json`, раздел `honest_jan2026` | ориентир для сравнения: nMAE ≈ 14.6–14.7 % на 24 ч, ≈ 16.8–16.9 % на 48 ч |

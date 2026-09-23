@@ -1,19 +1,26 @@
 {
   "issue_date": "2026-02-13",
+  "llm_used": false,
   "recalculated": false,
   "analysis": {
     "calm_hours": 19,
     "rated_hours": 0,
     "storm_hours": 0,
-    "turbine_spread_max": 0.114,
+    "turbine_spread_max": 0.042,
+    "mean_cf": {
+      "1": 0.345,
+      "2": 0.337
+    },
     "input_update_vs_previous_issue": {
       "overlap_hours": 24,
-      "mean_abs_change": 0.087,
-      "max_abs_change": 0.296
+      "mean_abs_change": 0.089,
+      "max_abs_change": 0.284
     },
+    "input_change_vs_previous_issue": 0.089,
+    "update_threshold": 0.15,
     "needs_recalculation": false
   },
-  "conclusion": "Прогноз на 48 ч от 2026-02-13: средняя нормализованная мощность T1 0.35, T2 0.33. Часов штиля 19, часов на номинале 0, штормовых 0. Относительно прогноза предыдущего дня входные данные изменились на 0.087 в среднем.",
+  "conclusion": "Прогноз на 48 ч от 2026-02-13: средняя нормализованная мощность T1 0.35, T2 0.34; ожидаемая выработка 16.6 и 16.2 норм·ч. Часов штиля 19, часов на номинале 0, штормовых 0. Относительно прогноза предыдущего дня входные данные изменились в среднем на 0.089 при пороге пересчёта 0.15. Пересчёт не потребовался.",
   "trace": [
     {
       "tool": "get_weather",
@@ -21,20 +28,29 @@
         "hours": 48,
         "from": "2026-02-14 00:00:00",
         "to": "2026-02-15 23:00:00",
-        "ws100_mean": 4.95,
-        "ws100_max": 9.83,
-        "lead_days": [
-          1,
-          2
-        ]
+        "lead1_hours": 24,
+        "lead2_hours": 24,
+        "ws100_min": 0.4,
+        "ws100_mean": 4.9,
+        "ws100_max": 9.8,
+        "temp_min": -2.6,
+        "temp_max": 6.6,
+        "source": "Open-Meteo Previous Runs, выпуск не позже даты прогноза"
       }
     },
     {
       "tool": "prepare_and_predict",
       "result": {
-        "turbine_1_mean": 0.354,
-        "turbine_2_mean": 0.329,
-        "hours": 48
+        "hours": 48,
+        "rows": 96,
+        "mean_cf": {
+          "1": 0.345,
+          "2": 0.337
+        },
+        "energy_norm_h": {
+          "1": 16.6,
+          "2": 16.2
+        }
       }
     },
     {
@@ -43,13 +59,26 @@
         "calm_hours": 19,
         "rated_hours": 0,
         "storm_hours": 0,
-        "turbine_spread_max": 0.114,
+        "turbine_spread_max": 0.042,
+        "mean_cf": {
+          "1": 0.345,
+          "2": 0.337
+        },
         "input_update_vs_previous_issue": {
           "overlap_hours": 24,
-          "mean_abs_change": 0.087,
-          "max_abs_change": 0.296
+          "mean_abs_change": 0.089,
+          "max_abs_change": 0.284
         },
+        "input_change_vs_previous_issue": 0.089,
+        "update_threshold": 0.15,
         "needs_recalculation": false
+      }
+    },
+    {
+      "tool": "save_forecast",
+      "result": {
+        "path": "outputs\\forecasts\\2026-02-13.csv",
+        "rows": 96
       }
     }
   ]

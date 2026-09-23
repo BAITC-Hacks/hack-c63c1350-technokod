@@ -149,7 +149,9 @@ class ForecastAgent:
     # ---------- оркестрация ----------
     def run_day(self, issue_date: str, horizon_hours: int = 48, use_llm: bool | None = None) -> AgentState:
         self.state = AgentState(issue_date=issue_date, horizon_hours=horizon_hours)
-        llm_ok = use_llm if use_llm is not None else bool(settings.openai_api_key or settings.nvidia_api_key) and not settings.demo_mode
+        from app.llm import available
+
+        llm_ok = available() if use_llm is None else (use_llm and available())
         if llm_ok:
             try:
                 self._run_with_llm()
@@ -185,10 +187,9 @@ class ForecastAgent:
         return txt
 
     def _run_with_llm(self) -> None:
-        from app.llm import _client, _model  # noqa: WPS450
+        """Оркестрация моделью через function calling (app.llm.chat_tools)."""
+        from app.llm import chat_tools
 
-        client = _client()
-        model = _model(reasoning=False)
         tool_specs = [
             {"type": "function", "function": {"name": "get_weather", "description": "Получить архивный прогноз погоды по координатам ВЭС, доступный на дату прогноза", "parameters": {"type": "object", "properties": {}}}},
             {"type": "function", "function": {"name": "prepare_and_predict", "description": "Подготовить признаки и запустить модель выработки для обеих турбин", "parameters": {"type": "object", "properties": {}}}},
@@ -196,20 +197,28 @@ class ForecastAgent:
             {"type": "function", "function": {"name": "recalculate", "description": "Повторный расчёт при обновлении входных данных или аномалиях", "parameters": {"type": "object", "properties": {"reason": {"type": "string"}}}}},
             {"type": "function", "function": {"name": "save_forecast", "description": "Сохранить итоговый прогноз и журнал", "parameters": {"type": "object", "properties": {}}}},
         ]
-        messages = [
-            {"role": "system", "content": "Ты агент прогнозирования выработки ветроэлектростанции. Выполни полный цикл инструментами: погода, прогноз, анализ, при необходимости пересчёт, сохранение. В конце дай короткое заключение на русском: ожидаемая выработка, риски, изменилось ли что-то относительно прошлого выпуска."},
+        messages: list[dict[str, Any]] = [
+            {"role": "system", "content": (
+                "Ты агент прогнозирования выработки ветроэлектростанции. Выполни полный цикл инструментами: "
+                "погода, прогноз, анализ, при необходимости пересчёт, сохранение. Решение о пересчёте принимай по полю "
+                "needs_recalculation и здравому смыслу. В конце дай короткое заключение на русском (3–5 предложений): "
+                "ожидаемая выработка по турбинам, риски (штиль, шторм), изменилось ли что-то относительно прошлого выпуска."
+            )},
             {"role": "user", "content": f"Дата прогноза {self.state.issue_date}, горизонт {self.state.horizon_hours} часов."},
         ]
         for _ in range(10):
-            resp = client.chat.completions.create(model=model, messages=messages, tools=tool_specs, temperature=0)
-            msg = resp.choices[0].message
-            messages.append(msg)
-            if not msg.tool_calls:
-                self.state.conclusion = msg.content or self._template_conclusion()
+            step = chat_tools(messages, tool_specs, temperature=0)
+            if not step["tool_calls"]:
+                self.state.conclusion = step["content"] or self._template_conclusion()
                 break
-            for call in msg.tool_calls:
-                args = json.loads(call.function.arguments or "{}")
-                result = self.tools[call.function.name](**args)
-                messages.append({"role": "tool", "tool_call_id": call.id, "content": json.dumps(result, ensure_ascii=False, default=str)})
+            messages.append({"role": "assistant", "content": step["content"], "tool_calls": [
+                {"id": c["id"], "type": "function", "function": {"name": c["name"], "arguments": c["arguments"] or "{}"}}
+                for c in step["tool_calls"]
+            ]})
+            for c in step["tool_calls"]:
+                args = json.loads(c["arguments"] or "{}")
+                fn = self.tools.get(c["name"])
+                result = fn(**args) if fn else {"error": f"неизвестный инструмент {c['name']}"}
+                messages.append({"role": "tool", "tool_call_id": c["id"], "content": json.dumps(result, ensure_ascii=False, default=str)})
         if not self.state.conclusion:
             self.state.conclusion = self._template_conclusion()

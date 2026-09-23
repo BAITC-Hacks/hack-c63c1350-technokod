@@ -66,3 +66,36 @@ def chat(messages: list[dict[str, Any]], reasoning: bool = False, temperature: f
     cache[key] = text
     _save_cache(cache)
     return text
+
+
+def available() -> bool:
+    """Есть ли живой провайдер: ключ задан и режим проверки выключен."""
+    if settings.demo_mode or settings.llm_provider == "demo":
+        return False
+    if settings.llm_provider == "nvidia":
+        return bool(settings.nvidia_api_key)
+    return bool(settings.openai_api_key)
+
+
+def chat_tools(
+    messages: list[dict[str, Any]],
+    tools: list[dict[str, Any]],
+    reasoning: bool = False,
+    temperature: float = 0.1,
+) -> dict[str, Any]:
+    """Один шаг диалога с инструментами (function calling).
+
+    Возвращает {"content": текст или None, "tool_calls": [{"id", "name", "arguments"}]}.
+    Форма ответа не зависит от версии SDK, оркестратор работает со словарями.
+    """
+    if settings.demo_mode or settings.llm_provider == "demo":
+        raise RuntimeError("DEMO_MODE: оркестрация LLM недоступна")
+    resp = _client().chat.completions.create(
+        model=_model(reasoning), messages=messages, tools=tools, temperature=temperature
+    )
+    msg = resp.choices[0].message
+    calls = [
+        {"id": tc.id, "name": tc.function.name, "arguments": tc.function.arguments}
+        for tc in (msg.tool_calls or [])
+    ]
+    return {"content": msg.content, "tool_calls": calls}

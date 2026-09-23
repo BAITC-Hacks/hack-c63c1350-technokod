@@ -8,11 +8,18 @@ __pycache__/
 venv/
 .pytest_cache/
 # data and outputs
-
-
+# кэш архивных прогнозов коммитим: он нужен для запуска контрольного сценария без сети
+data/cache/*
+!data/cache/weather/
+!data/cache/demo_responses.json
 *.duckdb
 *.log
-
+# из outputs коммитим только итоговые артефакты и журналы агента
+outputs/*
+!outputs/forecast_feb2026.csv
+!outputs/forecast_all_issues.csv
+!outputs/backtest_summary.csv
+!outputs/agent_logs/
 # os / ide
 .DS_Store
 Thumbs.db

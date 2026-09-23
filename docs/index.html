@@ -527,14 +527,15 @@ footer .wrap { display: flex; gap: 16px; flex-wrap: wrap; justify-content: space
       <svg class="ic" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4.5" width="18" height="16" rx="2.5"/><path d="M3 9.5h18M8 2.5v4M16 2.5v4"/></svg>
       <span class="k">Выпуск</span>
       <button class="nav" type="button" id="prev" aria-label="Предыдущий выпуск">‹</button>
-      <select id="issue" aria-label="Дата выпуска прогноза"></select>
+      <input type="date" id="issue-date" aria-label="Дата выпуска прогноза" min="2024-02-16">
+      <select id="issue" aria-label="Дата выпуска прогноза (список)" hidden></select>
       <button class="nav" type="button" id="next" aria-label="Следующий выпуск">›</button>
     </div>
-    <div class="chip seg" id="seg-src" role="group" aria-label="Источник периода" data-hint="&lt;b&gt;Тестовый период&lt;/b&gt; — 30 выпусков кейса, посчитанных полной моделью заранее.&lt;br&gt;&lt;b&gt;Произвольный период&lt;/b&gt; — любая дата и диапазон: страница сама запрашивает погоду у Open-Meteo и считает прогноз упрощённой моделью прямо в браузере. Нужна сеть.">
+    <div class="chip seg" id="seg-src" role="group" aria-label="Источник периода" hidden data-hint="&lt;b&gt;Тестовый период&lt;/b&gt; — 30 выпусков кейса, посчитанных полной моделью заранее.&lt;br&gt;&lt;b&gt;Произвольный период&lt;/b&gt; — любая дата и диапазон: страница сама запрашивает погоду у Open-Meteo и считает прогноз упрощённой моделью прямо в браузере. Нужна сеть.">
       <button type="button" data-s="test" aria-pressed="true">Тестовый период</button>
       <button type="button" data-s="any">Произвольный период</button>
     </div>
-    <div class="chip range" id="chip-range" hidden data-hint="&lt;b&gt;Дата выпуска прогноза.&lt;/b&gt; Семантика та же, что и в тестовом периоде: выпуск в конце выбранных суток, прогноз покрывает следующие двое суток. Источник выбирается автоматически — архивные слои для прошлого, текущий прогон для сегодня и будущего. Архив доступен с 16.02.2024, прогноз вперёд — не дальше 16 суток.">
+    <div class="chip range" id="chip-range" hidden data-x-hint="&lt;b&gt;Дата выпуска прогноза.&lt;/b&gt; Семантика та же, что и в тестовом периоде: выпуск в конце выбранных суток, прогноз покрывает следующие двое суток. Источник выбирается автоматически — архивные слои для прошлого, текущий прогон для сегодня и будущего. Архив доступен с 16.02.2024, прогноз вперёд — не дальше 16 суток.">
       <span class="k">Выпуск</span>
       <input type="date" id="d-issue" aria-label="Дата выпуска прогноза">
       <button type="button" class="go" id="go">Рассчитать</button>
@@ -1802,8 +1803,8 @@ footer .wrap { display: flex; gap: 16px; flex-wrap: wrap; justify-content: space
 
   function renderAll() {
     var custom = state.src === "any";
-    $("chip-range").hidden = !custom;
-    $("chip-issue").hidden = custom;      /* выпуск из тестового периода тут неуместен */
+    $("chip-range").hidden = true;   /* дату задаёт единое поле в строке управления */
+    $("chip-issue").hidden = false;       /* единое поле даты работает в обоих режимах */
     $("seg-mode").hidden = custom;        /* журнала агента в этом режиме нет */
     $("go").disabled = state.busy;
     drawSimpleNote();
@@ -1819,6 +1820,16 @@ footer .wrap { display: flex; gap: 16px; flex-wrap: wrap; justify-content: space
   }
 
   /* ================= события ================= */
+  /* Подсветить кнопку сегмента программно: нужно, когда режим меняется не кликом,
+     а выбором даты вне тестового периода. */
+  function segSet(id, value) {
+    var box = $(id);
+    if (!box) return;
+    Array.prototype.forEach.call(box.querySelectorAll("button"), function (x) {
+      x.setAttribute("aria-pressed", x.dataset.s === value ? "true" : "false");
+    });
+  }
+
   function bindSeg(id, apply) {
     var box = $(id);
     box.addEventListener("click", function (ev) {
@@ -1851,9 +1862,28 @@ footer .wrap { display: flex; gap: 16px; flex-wrap: wrap; justify-content: space
     state.i = def >= 0 ? def : 0;
     sel.value = String(state.i);
 
-    sel.addEventListener("change", function () { state.i = Number(sel.value); syncNav(); renderAll(); });
-    $("prev").addEventListener("click", function () { if (state.i > 0) { state.i--; sel.value = String(state.i); syncNav(); renderAll(); } });
-    $("next").addEventListener("click", function () { if (state.i < D.issues.length - 1) { state.i++; sel.value = String(state.i); syncNav(); renderAll(); } });
+    var dIn = $("issue-date");
+    dIn.max = addDays(todayISO(), 15);
+    function syncDate() { dIn.value = D.issues[state.i].issue_date; }
+    syncDate();
+
+    /* Одно поле даты на всё: дата из тестового периода открывает готовый выпуск полной
+       модели, любая другая уходит в расчёт в браузере упрощённой моделью. */
+    dIn.addEventListener("change", function () {
+      var v = dIn.value;
+      if (!v) return;
+      var idx = D.issues.findIndex(function (it) { return it.issue_date === v; });
+      if (idx >= 0) {
+        state.src = "test"; state.i = idx; sel.value = String(idx);
+        segSet("seg-src", "test"); syncNav(); renderAll();
+      } else {
+        state.src = "any"; segSet("seg-src", "any");
+        $("d-issue").value = v; renderAll(); $("go").click();
+      }
+    });
+    sel.addEventListener("change", function () { state.i = Number(sel.value); syncDate(); syncNav(); renderAll(); });
+    $("prev").addEventListener("click", function () { if (state.i > 0) { state.i--; sel.value = String(state.i); syncDate(); syncNav(); renderAll(); } });
+    $("next").addEventListener("click", function () { if (state.i < D.issues.length - 1) { state.i++; sel.value = String(state.i); syncDate(); syncNav(); renderAll(); } });
 
     bindSeg("seg-src", function (b) {
       state.src = b.dataset.s;

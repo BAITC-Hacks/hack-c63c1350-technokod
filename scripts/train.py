@@ -58,8 +58,21 @@ def main() -> None:
                 "two_stage": evaluate(s["power_norm"].values, s["power_two_stage_pred"].values).as_dict(),
                 "curve": evaluate(s["power_norm"].values, s["power_curve_pred"].values).as_dict(),
             }
+        # квантили остатков для интервала P10–P90
+        from app.model import level_bin
+        blend_all = bg * m["power_gbm_pred"] + bt * m["power_two_stage_pred"] + (1 - bg - bt) * m["power_curve_pred"]
+        resid = pd.DataFrame({"lead": m["lead_day"].astype(int), "lvl": [level_bin(v) for v in blend_all], "r": m["power_norm"] - blend_all})
+        rq = {}
+        for (ld, lvl), g in resid.groupby(["lead", "lvl"]):
+            if len(g) >= 20:
+                rq[(int(ld), int(lvl))] = (float(g["r"].quantile(0.1)), float(g["r"].quantile(0.9)))
+        res["residual_quantiles"] = {f"lead{k[0]}_lvl{k[1]}": [round(v[0], 3), round(v[1], 3)] for k, v in rq.items()}
+        cover = float(((resid["r"] >= resid.apply(lambda r: rq.get((r["lead"], r["lvl"]), (-0.25, 0.25))[0], axis=1)) &
+                       (resid["r"] <= resid.apply(lambda r: rq.get((r["lead"], r["lvl"]), (-0.25, 0.25))[1], axis=1))).mean())
+        res["p10_p90_coverage_jan2026"] = round(cover, 3)
         final = GenerationModel(t).fit(ds)
         final.weights = weights
+        final.residual_quantiles = rq
         res["model_path"] = str(final.save())
         res["train_rows_final"] = int(len(ds))
         save_metrics(f"turbine_{t}", res)

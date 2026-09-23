@@ -33,6 +33,11 @@ def evaluate(y_true: np.ndarray, y_pred: np.ndarray) -> Metrics:
     return Metrics(mae=mae, rmse=rmse, nmae_pct=mae * 100, n=len(y_true))  # мощность нормирована на 1
 
 
+def level_bin(pred: float) -> int:
+    """Уровень прогноза для таблицы остатков: 0 (<0.2), 1 (<0.5), 2 (<0.8), 3 (>=0.8)."""
+    return 0 if pred < 0.2 else 1 if pred < 0.5 else 2 if pred < 0.8 else 3
+
+
 class PowerCurve:
     """Эмпирическая кривая мощности по прогнозной скорости ветра на 100 м (бины по 0.5 м/с)."""
 
@@ -70,6 +75,8 @@ class GenerationModel:
         self.curve = PowerCurve()
         self.nacelle_curve = PowerCurve(step=0.25)
         self.weights = {"gbm": 0.0, "two_stage": 0.5, "curve": 0.5}
+        # квантили остатков (факт - прогноз) по лиду и уровню прогноза, из честной валидации
+        self.residual_quantiles: dict[tuple[int, int], tuple[float, float]] = {}
 
     def fit(self, train: pd.DataFrame) -> "GenerationModel":
         self.gbm.fit(train[FEATURES], train["power_norm"])
@@ -94,6 +101,13 @@ class GenerationModel:
         out["power_norm_pred"] = (
             w["gbm"] * out["power_gbm_pred"] + w["two_stage"] * out["power_two_stage_pred"] + w["curve"] * out["power_curve_pred"]
         )
+        lead = out["lead_day"] if "lead_day" in out.columns else pd.Series(1, index=out.index)
+        lo, hi = [], []
+        for pred, ld in zip(out["power_norm_pred"], lead):
+            q10, q90 = self.residual_quantiles.get((int(ld), level_bin(pred)), (-0.25, 0.25))
+            lo.append(min(max(pred + q10, 0.0), 1.0))
+            hi.append(min(max(pred + q90, 0.0), 1.0))
+        out["power_p10"], out["power_p90"] = lo, hi
         if "lead_day" in df.columns:
             out["lead_day"] = df["lead_day"].values
         return out

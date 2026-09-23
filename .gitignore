@@ -1,0 +1,20 @@
+# secrets
+.env
+*.key
+# python
+__pycache__/
+*.pyc
+.venv/
+venv/
+.pytest_cache/
+# data and outputs
+data/raw/
+data/cache/
+*.duckdb
+*.log
+outputs/
+# os / ide
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/

@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>WindAgent — как устроено решение</title>
-<meta name="description" content="Как устроен WindAgent: агентный цикл из пяти инструментов, модель выработки, честная валидация января 2026 и порядок проверки решения.">
+<meta name="description" content="Как устроен WindAgent: агентный цикл из шести инструментов, модель выработки, честная валидация января 2026 и порядок проверки решения.">
 <link rel="icon" href="demo/favicon.svg" type="image/svg+xml">
 <link rel="icon" href="demo/favicon-32.png" sizes="32x32">
 <link rel="apple-touch-icon" href="demo/apple-touch-icon-180.png">
@@ -13,39 +13,48 @@
   color-scheme: light;
   --font: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
   --font-mono: ui-monospace, SFMono-Regular, "Cascadia Mono", Consolas, monospace;
-  --brand-800: #0E3A57;  --brand-700: #124A6E;  --brand-600: #1A6B9B;
-  --brand-500: #2E8DC2;  --brand-100: #DCEBF4;
+  --brand-900: #0A2B41;  --brand-800: #0E3A57;  --brand-700: #124A6E;
+  --brand-600: #1A6B9B;  --brand-500: #2E8DC2;  --brand-300: #6FB4DB;
+  --brand-100: #DCEBF4;  --brand-50: #EEF5FA;
   --accent-600: #C87C00; --accent-500: #E08A00; --accent-100: #FBEBCF;
-  --bg: #F6F8FA;         --surface: #FFFFFF;    --surface-2: #EDF1F4;
+  --bg: #F4F7FA;         --surface: #FFFFFF;    --surface-2: #F1F5F8;
   --text: #10191F;       --text-2: #4A5A66;     --text-muted: #6B7C88;
-  --border: #D8E0E6;     --grid: #EDF1F4;       --link: #1A6B9B;
-  --series-1: #1A6B9B;   --series-2: #C87C00;
-  --band: rgba(26,107,155,.14);  --ref: #6B7C88;  --farm: #0E3A57;
-  --ok: #0CA30C; --warn: #FAB219; --fail: #D03B3B;
-  --radius-control: 6px; --radius-card: 12px;
-  --shadow: 0 1px 2px rgba(16,25,31,.06), 0 8px 24px rgba(16,25,31,.06);
+  --border: #DCE4EA;     --grid: #EDF1F4;       --link: #1A6B9B;
+  --series-1: #6FB4DB;   --series-2: #2E8DC2;
+  --band: rgba(200,124,0,.16);  --ref: #93A3AE;  --farm: #123F66;
+  --ok: #0F9D58; --ok-bg: #E7F5EE; --ok-br: #BFE3D1;
+  --warn: #B07400; --warn-bg: #FDF3DC; --warn-br: #EFD79A;
+  --fail: #D03B3B; --fail-bg: #FDECEC; --fail-br: #F3C4C4;
+  --radius-control: 8px; --radius-card: 12px;
+  --shadow: 0 1px 2px rgba(16,25,31,.05), 0 6px 18px rgba(16,25,31,.05);
   --content: 1120px; --measure: 760px;
 }
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme="light"]) {
     color-scheme: dark;
-    --brand-100: #17313F;  --accent-100: #3A2D10;
-    --bg: #0D1216;         --surface: #151D23;   --surface-2: #1E2933;
+    --brand-100: #17313F;  --brand-50: #14252F;  --accent-100: #3A2D10;
+    --bg: #0D1216;         --surface: #151D23;   --surface-2: #1B242C;
     --text: #EDF1F4;       --text-2: #B6C2CB;    --text-muted: #8697A3;
     --border: #2A3742;     --grid: #1E2933;      --link: #6FB4DB;
-    --series-1: #2E8DC2;   --series-2: #C87C00;
-    --band: rgba(46,141,194,.18); --ref: #8697A3; --farm: #6FB4DB;
+    --series-1: #6FB4DB;   --series-2: #2E8DC2;
+    --band: rgba(224,138,0,.10); --ref: #7B8A95; --farm: #BFE2F5;
+    --ok: #35BE7C; --ok-bg: #12291F; --ok-br: #1E4733;
+    --warn: #E0A62A; --warn-bg: #2B2311; --warn-br: #4A3B15;
+    --fail: #E86A6A; --fail-bg: #2C1717; --fail-br: #4D2626;
     --shadow: none;
   }
 }
 :root[data-theme="dark"] {
   color-scheme: dark;
-  --brand-100: #17313F;  --accent-100: #3A2D10;
-  --bg: #0D1216;         --surface: #151D23;   --surface-2: #1E2933;
-  --text: #EDF1F4;       --text-2: #B6C2CB;    --text-muted: #8697A3;
-  --border: #2A3742;     --grid: #1E2933;      --link: #6FB4DB;
-  --series-1: #2E8DC2;   --series-2: #C87C00;
-  --band: rgba(46,141,194,.18); --ref: #8697A3; --farm: #6FB4DB;
+  --brand-100: #17313F;  --brand-50: #14252F;  --accent-100: #3A2D10;
+  --bg: #0D1216;     --surface: #151D23;   --surface-2: #1B242C;
+  --text: #EDF1F4;     --text-2: #B6C2CB;  --text-muted: #8697A3;
+  --border: #2A3742;   --grid: #1E2933;    --link: #6FB4DB;
+  --series-1: #6FB4DB;   --series-2: #2E8DC2;
+  --band: rgba(224,138,0,.10); --ref: #7B8A95; --farm: #BFE2F5;
+  --ok: #35BE7C; --ok-bg: #12291F; --ok-br: #1E4733;
+  --warn: #E0A62A; --warn-bg: #2B2311; --warn-br: #4A3B15;
+  --fail: #E86A6A; --fail-bg: #2C1717; --fail-br: #4D2626;
   --shadow: none;
 }
 * { box-sizing: border-box; }
@@ -143,6 +152,24 @@ svg.chart { display: block; width: 100%; height: auto; }
 footer { border-top: 1px solid var(--border); padding: 20px 0 40px; color: var(--text-muted); font-size: 13px; }
 .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; align-items: start; }
 @media (max-width: 900px) { .grid2 { grid-template-columns: 1fr; } }
+
+/* ---- шапка в стиле дашборда ---- */
+.topbar { background: var(--brand-900) !important; color: #fff; border-bottom: 0 !important; }
+.topbar .wrap { display: flex; align-items: center; gap: 16px; min-height: 62px; flex-wrap: wrap; }
+.topbar .brand { color: #fff !important; gap: 11px; }
+.topbar .brand img { width: 36px; height: 36px; border-radius: 9px; background: #fff; display: block; }
+.topbar .brand b { font-size: 17px; font-weight: 650; }
+.topbar .brand span { color: #9FC0D6 !important; font-size: 12px; line-height: 15px; }
+.topnav { margin-left: auto; display: flex; align-items: center; gap: 18px; font-size: 13px; }
+.topnav a { color: #CFE2EE !important; text-decoration: none; }
+.topnav a:hover { color: #fff !important; text-decoration: underline; }
+.topnav .sep { color: #34617F; }
+.topnav .cta { font-weight: 600; }
+.themebtn { background: transparent; border: 1px solid #2C5570; color: #CFE2EE;
+  width: 32px; height: 32px; border-radius: 8px; cursor: pointer; display: grid; place-items: center; padding: 0; }
+.themebtn:hover { color: #fff; border-color: #4A7C9C; }
+.card { box-shadow: var(--shadow); }
+thead th { background: var(--surface-2); }
 </style>
 </head>
 <body>
@@ -150,16 +177,18 @@ footer { border-top: 1px solid var(--border); padding: 20px 0 40px; color: var(-
 <header class="topbar">
   <div class="wrap">
     <a class="brand" href="./">
-      <img class="mk-light" src="demo/mark.svg" alt="" width="32" height="32">
-      <img class="mk-dark" src="demo/mark-dark.svg" alt="" width="32" height="32">
-      <span style="display:flex;flex-direction:column;line-height:1.2">
+      <img src="demo/mark.svg" alt="" width="36" height="36">
+      <span style="display:flex;flex-direction:column">
         <b>WindAgent</b><span>прогноз выработки ВЭС</span>
       </span>
     </a>
     <nav class="topnav">
-      <a class="cta" href="./">← Дашборд</a>
+      <a class="cta" href="./">Дашборд</a>
+      <span class="sep">|</span>
       <a href="https://github.com/BAITC-Hacks/hack-c63c1350-technokod">Репозиторий</a>
-      <button class="iconbtn" id="theme" type="button" aria-label="Переключить тему">Тема</button>
+      <button class="themebtn" id="theme" type="button" aria-label="Переключить тему">
+        <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="4.2"/><path d="M12 2.5v2M12 19.5v2M2.5 12h2M19.5 12h2M5.3 5.3l1.4 1.4M17.3 17.3l1.4 1.4M18.7 5.3l-1.4 1.4M6.7 17.3l-1.4 1.4"/></svg>
+      </button>
     </nav>
   </div>
 </header>
@@ -173,7 +202,7 @@ footer { border-top: 1px solid var(--border); padding: 20px 0 40px; color: var(-
     <p class="lead">Агент прогнозирует почасовую выработку двух турбин ветроэлектростанции на 24–48 часов вперёд, используя только тот прогноз погоды, который был доступен на момент выпуска. Команда Technokod.</p>
     <ul class="chips">
       <li>Горизонт 24–48 ч, шаг 1 час</li>
-      <li>Тест: февраль 2026, 28 выпусков</li>
+      <li>Тест: февраль 2026, 30 выпусков</li>
       <li>nMAE 14.31 % на сутки</li>
       <li>Оркестрация через function calling</li>
     </ul>
@@ -184,12 +213,12 @@ footer { border-top: 1px solid var(--border); padding: 20px 0 40px; color: var(-
     <p>Две турбины стоят в 400 метрах друг от друга в Шелекском ветровом коридоре Алматинской области. Требуется почасовой прогноз их выработки на 24–48 часов вперёд для суточной заявки на рынок и планирования резервов.</p>
     <p>Ключевое требование кейса: для каждой даты выпуска разрешено использовать только тот прогноз погоды, который был доступен именно на этот момент, а не фактические значения, ставшие известными позже. Решение берёт архивные выпуски прогноза Open-Meteo Previous Runs: часы 1–24 горизонта из прогноза, выпущенного за сутки, часы 25–48 — из выпущенного за двое суток.</p>
     <p>Агент проходит полный цикл на каждую дату: получает прогноз погоды, готовит признаки, запускает модель выработки, анализирует результат, сравнивает его с предыдущим выпуском и пересчитывает прогноз, если входные данные обновились. Порядок вызова инструментов выбирает языковая модель через function calling; без ключа провайдера тот же цикл выполняет детерминированный планировщик, поэтому числовой результат не зависит от доступности внешнего сервиса.</p>
-    <p style="margin-bottom:0"><a href="./">Открыть дашборд диспетчера →</a> — там любой из 28 выпусков февраля с коридором неопределённости, трассой решений агента и сводкой для заявки.</p>
+    <p style="margin-bottom:0"><a href="./">Открыть дашборд диспетчера →</a> — там любой из 30 выпусков февраля с коридором неопределённости, трассой решений агента и сводкой для заявки.</p>
   </section>
 
   <section class="card chartcard">
     <h2>Прогноз на февраль 2026</h2>
-    <p>Результат 28 последовательных выпусков: на каждый час февраля взят самый свежий доступный прогноз — тот, что выпущен накануне. Значения — нормированная мощность, доля от номинала турбины.</p>
+    <p>Результат 30 последовательных выпусков: на каждый час февраля взят самый свежий доступный прогноз — тот, что выпущен накануне. Значения — нормированная мощность, доля от номинала турбины.</p>
     <div class="legend">
       <span><i class="key t1"></i> турбина 1</span>
       <span><i class="key t2"></i> турбина 2</span>
@@ -245,9 +274,10 @@ footer { border-top: 1px solid var(--border); padding: 20px 0 40px; color: var(-
 
   <section class="card">
     <h2>Как работает агент</h2>
-    <p>Пять инструментов, между которыми агент выбирает сам. Каждый выпуск сохраняет журнал с полной трассой вызовов — по нему любое решение агента можно разобрать постфактум.</p>
+    <p>Шесть инструментов, между которыми агент выбирает сам. Каждый выпуск сохраняет журнал с полной трассой вызовов — по нему любое решение агента можно разобрать постфактум.</p>
     <ul class="tools">
       <li><code>get_weather</code><span>Архивный прогноз погоды, доступный на дату выпуска</span></li>
+      <li><code>check_input_quality</code><span>Контроль входных данных: пропуски, застрявший датчик, неполный горизонт, физически невозможные значения. При вердикте <code>fail</code> выпуск не публикуется</span></li>
       <li><code>prepare_and_predict</code><span>Признаки и расчёт выработки по обеим турбинам</span></li>
       <li><code>analyze</code><span>Штиль, номинал, шторм, расхождение с прошлым выпуском</span></li>
       <li><code>recalculate</code><span>Повторный расчёт и буревая защита турбины</span></li>
@@ -258,14 +288,15 @@ footer { border-top: 1px solid var(--border); padding: 20px 0 40px; color: var(-
     <p class="note" style="margin-bottom:12px">Журнал <code>outputs/agent_logs_llm/2026-02-15.json</code>, режим с живой оркестрацией: порядок инструментов выбрала модель.</p>
     <ol class="trace">
       <li><span class="n">1</span><span><code>get_weather</code><div class="d">48 часов прогноза на 16–17 февраля: 24 часа из выпуска за сутки, 24 из выпуска за двое суток. Ветер на 100 м от 3.4 до 7.7 м/с при среднем 5.9, температура от 0.4 до 9.6 °C.</div></span></li>
-      <li><span class="n">2</span><span><code>prepare_and_predict</code><div class="d">96 строк — 48 часов на каждую из двух турбин. Средний коэффициент использования 0.379 и 0.370, ожидаемая выработка 18.2 и 17.7 норм·ч.</div></span></li>
-      <li><span class="n">3</span><span><code>analyze</code><div class="d">Штилевых, номинальных и штормовых часов нет. Расхождение с выпуском предыдущего дня на пересекающихся 24 часах: 0.164 в среднем при пороге пересчёта 0.15, максимум 0.441 → <code>needs_recalculation: true</code>.</div></span></li>
-      <li><span class="n">4</span><span><code>prepare_and_predict</code><div class="d">Модель самостоятельно пересчитала прогноз на обновлённых данных перед вызовом пересчёта.</div></span></li>
-      <li><span class="n warn">5</span><span><code>recalculate</code><div class="d">Источник прогноза опрошен заново, буревая защита не сработала — штормовых часов нет, обнулённых строк 0.</div></span></li>
-      <li><span class="n">6</span><span><code>save_forecast</code><div class="d">Выпуск сохранён: <code>outputs/forecasts/2026-02-15.csv</code>, 96 строк.</div></span></li>
+      <li><span class="n">2</span><span><code>check_input_quality</code><div class="d">Вердикт <code>ok</code>: 48 часов из 48 ожидаемых, пропусков, застрявших значений и физически невозможных величин не найдено — публикация разрешена.</div></span></li>
+      <li><span class="n">3</span><span><code>prepare_and_predict</code><div class="d">96 строк — 48 часов на каждую из двух турбин. Средний коэффициент использования 0.379 и 0.370, ожидаемая выработка 18.2 и 17.7 норм·ч.</div></span></li>
+      <li><span class="n">4</span><span><code>analyze</code><div class="d">Штилевых, номинальных и штормовых часов нет. Расхождение с выпуском предыдущего дня на пересекающихся 24 часах: 0.164 в среднем при пороге пересчёта 0.15, максимум 0.441 → <code>needs_recalculation: true</code>.</div></span></li>
+      <li><span class="n">5</span><span><code>prepare_and_predict</code><div class="d">Модель самостоятельно пересчитала прогноз на обновлённых данных перед вызовом пересчёта.</div></span></li>
+      <li><span class="n warn">6</span><span><code>recalculate</code><div class="d">Источник прогноза опрошен заново, буревая защита не сработала — штормовых часов нет, обнулённых строк 0.</div></span></li>
+      <li><span class="n">7</span><span><code>save_forecast</code><div class="d">Выпуск сохранён: <code>outputs/forecasts/2026-02-15.csv</code>, 96 строк.</div></span></li>
     </ol>
     <blockquote>«Прогноз выпущен на 48 часов для турбин 1 и 2. Ожидаемая выработка: турбина 1 — 18.2 нормо-часа, турбина 2 — 17.7 нормо-часа; средний коэффициент использования — 0.379 и 0.370 соответственно. Рисков штиля и шторма по анализу не выявлено, номинальных часов тоже нет. Относительно прошлого выпуска входные данные заметно изменились, поэтому потребовался пересчёт; после пересчёта буревая защита не сработала.»</blockquote>
-    <p class="cap">Заключение записано языковой моделью и сохранено в журнале выпуска дословно. За весь тестовый период агент выполнил пересчёт в четырёх выпусках из 28: 6, 15, 21 и 24 февраля.</p>
+    <p class="cap">Заключение записано языковой моделью и сохранено в журнале выпуска дословно. За весь тестовый период агент выполнил пересчёт в четырёх выпусках из 30: 6, 15, 21 и 24 февраля.</p>
   </section>
 
   <section class="card">
@@ -273,7 +304,7 @@ footer { border-top: 1px solid var(--border); padding: 20px 0 40px; color: var(-
     <p>Решение проверяется на чужой машине без сети и без ключей: кэш архивных прогнозов погоды лежит в репозитории.</p>
     <ul class="checks">
       <li><b>Контрольный сценарий одной командой:</b> <code>bash scripts/demo.sh</code> или <code>powershell scripts/demo.ps1</code>. На обученных моделях проходит за 20–30 секунд, на чистом клоне — 38 секунд вместе с обучением, из них само обучение 14 секунд.</li>
-      <li><b>Десять автотестов</b> за три секунды: часовая агрегация, сборка признаков, честность источника прогноза, выпуск агента, отбраковка неверной даты, сборка итогового ряда февраля, буревое обнуление всех компонентов прогноза, откат на детерминированный план при отказе провайдера, границы интервала и его расширение на вторые сутки.</li>
+      <li><b>Двадцать два автотеста</b> за четыре секунды: часовая агрегация, сборка признаков, честность источника прогноза, выпуск агента, отбраковка неверной даты, сборка итогового ряда февраля, буревое обнуление всех компонентов прогноза, откат на детерминированный план при отказе провайдера, границы интервала и его расширение на вторые сутки, контроль качества входа на шести сценариях деградации.</li>
       <li><b>Сценарий останавливается на первой ошибке</b> и возвращает ненулевой код, поэтому «зелёный» прогон нельзя получить на сломанном коде.</li>
       <li><b>Живая оркестрация языковой моделью</b> — необязательный седьмой шаг: при заданном ключе выполняется, без ключа пропускается с явным сообщением.</li>
     </ul>

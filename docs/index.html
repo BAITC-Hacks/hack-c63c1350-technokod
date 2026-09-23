@@ -43,7 +43,7 @@
     --text: #EDF1F4;       --text-2: #B6C2CB;    --text-muted: #8697A3;
     --border: #2A3742;     --grid: #1E2933;      --link: #6FB4DB;
     --series-1: #6FB4DB;   --series-2: #2E8DC2;
-    --band: rgba(224,138,0,.13); --ref: #7B8A95;
+    --band: rgba(224,138,0,.10); --ref: #7B8A95;
     --farm: #BFE2F5;
     --ok: #35BE7C; --ok-bg: #12291F; --ok-br: #1E4733;
     --warn: #E0A62A; --warn-bg: #2B2311; --warn-br: #4A3B15;
@@ -58,7 +58,7 @@
   --text: #EDF1F4;       --text-2: #B6C2CB;    --text-muted: #8697A3;
   --border: #2A3742;     --grid: #1E2933;      --link: #6FB4DB;
   --series-1: #6FB4DB;   --series-2: #2E8DC2;
-  --band: rgba(224,138,0,.13); --ref: #7B8A95;
+  --band: rgba(224,138,0,.10); --ref: #7B8A95;
   --farm: #BFE2F5;
   --ok: #35BE7C; --ok-bg: #12291F; --ok-br: #1E4733;
   --warn: #E0A62A; --warn-bg: #2B2311; --warn-br: #4A3B15;
@@ -305,10 +305,10 @@ summary:hover { color: var(--link); }
 .mtiles { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; }
 .mtile {
   background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-card);
-  box-shadow: var(--shadow); padding: 13px 14px; display: flex; align-items: center; gap: 11px;
+  box-shadow: var(--shadow); padding: 12px 11px; display: flex; align-items: center; gap: 9px; min-width: 0;
 }
-.mtile .badge-ic { width: 36px; height: 36px; border-radius: 9px; background: var(--brand-50); color: var(--brand-600); display: grid; place-items: center; flex: none; }
-.mtile .v { font-size: 19px; line-height: 24px; font-weight: 700; font-variant-numeric: tabular-nums; }
+.mtile .badge-ic { width: 32px; height: 32px; border-radius: 8px; background: var(--brand-50); color: var(--brand-600); display: grid; place-items: center; flex: none; }
+.mtile .v { font-size: 18px; line-height: 23px; font-weight: 700; font-variant-numeric: tabular-nums; white-space: nowrap; }
 .mtile .k { font-size: 11.5px; line-height: 15px; color: var(--text-muted); }
 .limitline {
   margin-top: 10px; display: flex; gap: 9px; align-items: flex-start;
@@ -530,6 +530,9 @@ footer .wrap { display: flex; gap: 16px; flex-wrap: wrap; justify-content: space
   function ru(v, d) { return v === null || v === undefined ? "—" : v.toFixed(d === undefined ? 1 : d).replace(".", ","); }
   var MONTH = ["января","февраля","марта","апреля","мая","июня","июля","августа","сентября","октября","ноября","декабря"];
   function dayLong(s) { return String(Number(s.slice(8, 10))) + " " + MONTH[Number(s.slice(5, 7)) - 1]; }
+  function hoursWord(n) { var t = n % 100, o = n % 10;
+    if (t > 10 && t < 20) return n + " часов";
+    if (o === 1) return n + " час"; if (o >= 2 && o <= 4) return n + " часа"; return n + " часов"; }
   /* мощность станции в МВт: доля номинала × две турбины × номинал одной */
   function mw(frac) { return state.mw ? frac * 2 * state.mw : null; }
   function issue() { return D.issues[state.i]; }
@@ -583,7 +586,7 @@ footer .wrap { display: flex; gap: 16px; flex-wrap: wrap; justify-content: space
   }
 
   /* ================= главный график ================= */
-  var M = { l: 52, r: 56, t: 26, b: 42 }, CW = 1000, CH = 360;
+  var M = { l: 52, r: 56, t: 34, b: 42 }, CW = 1000, CH = 360;
   var mainGeo = null;
 
   function drawMain() {
@@ -596,9 +599,9 @@ footer .wrap { display: flex; gap: 16px; flex-wrap: wrap; justify-content: space
     var yAt = function (v) { return M.t + (1 - v) * PH; };
     mainGeo = { xs: xs, n: n, yAt: yAt, PW: PW, PH: PH };
 
-    svg.appendChild(el("text", { x: 4, y: 12, "class": "axis-cap" }, "Доля"));
-    svg.appendChild(el("text", { x: 4, y: 23, "class": "axis-cap" }, "номинала"));
-    if (state.mw) svg.appendChild(el("text", { x: CW - M.r + 8, y: 12, "class": "axis-cap" }, "МВт"));
+    svg.appendChild(el("text", { x: 2, y: 11, "class": "axis-cap" }, "Доля"));
+    svg.appendChild(el("text", { x: 2, y: 22, "class": "axis-cap" }, "номинала"));
+    if (state.mw) svg.appendChild(el("text", { x: CW - M.r + 9, y: 15, "class": "axis-cap" }, "МВт"));
 
     [0, 0.25, 0.5, 0.75, 1].forEach(function (v) {
       var y = yAt(v);
@@ -727,7 +730,7 @@ footer .wrap { display: flex; gap: 16px; flex-wrap: wrap; justify-content: space
     var cov = D.model.coverage.turbine_1 * 100;
     var html = "";
     html += tile("primary", IC.bolt, ru(conv(sum), 1) + unit,
-      "Ожидаемая энергия · " + n + " часов", "");
+      "Ожидаемая энергия · " + hoursWord(n), "");
     order.slice(0, 2).forEach(function (k, idx) {
       html += tile("", IC.cal, ru(conv(days[k].s), 1) + unit,
         "Сутки " + (idx + 1) + " · " + dayLong(k + "T00"), "");
@@ -956,14 +959,14 @@ footer .wrap { display: flex; gap: 16px; flex-wrap: wrap; justify-content: space
     var t1a = m.turbine_1.lead1.blend, t2a = m.turbine_2.lead1.blend;
     var t1b = m.turbine_1.lead2.blend, t2b = m.turbine_2.lead2.blend;
     var html = "";
-    html += mtile(IC.chart, ru(t1a.nmae_pct, 1) + " %", "nMAE 24 ч · Т2 " + ru(t2a.nmae_pct, 1) + " %");
-    html += mtile(IC.chart, ru(t1b.nmae_pct, 1) + " %", "nMAE 48 ч · Т2 " + ru(t2b.nmae_pct, 1) + " %");
-    html += mtile(IC.shield, ru(c.turbine_1 * 100, 1) + " %", "Покрытие P10–P90");
+    html += mtile(IC.chart, ru(t1a.nmae_pct, 1) + " %", "nMAE 24 ч<br>Т2 " + ru(t2a.nmae_pct, 1) + " %");
+    html += mtile(IC.chart, ru(t1b.nmae_pct, 1) + " %", "nMAE 48 ч<br>Т2 " + ru(t2b.nmae_pct, 1) + " %");
+    html += mtile(IC.shield, ru(c.turbine_1 * 100, 1) + " %", "Покрытие<br>P10–P90");
     $("mtiles").innerHTML = html;
   }
   function mtile(icon, v, k) {
     return '<div class="mtile"><span class="badge-ic">' + svgIc(icon, 18) + '</span>' +
-      '<span><span class="v">' + v + '</span><span class="k">' + k + '</span></span></div>';
+      '<span style="min-width:0"><span class="v">' + v + '</span><span class="k">' + k + '</span></span></div>';
   }
 
   function drawValTable() {
@@ -987,7 +990,7 @@ footer .wrap { display: flex; gap: 16px; flex-wrap: wrap; justify-content: space
   function drawChips() {
     var it = issue(), log = agentLog();
     var first = it.ts[0], last = it.ts[span() - 1];
-    $("chart-title").textContent = "Прогноз выработки · " + span() + " часов";
+    $("chart-title").textContent = "Прогноз выработки · " + hoursWord(span());
     $("chart-sub").textContent = dayLong(first) + " " + hhmm(first) + " — " + dayLong(last) + " " + hhmm(last) +
       " (Алматы) · " + (state.mw ? "слева доля номинала, справа МВт" : "доля номинала станции");
 

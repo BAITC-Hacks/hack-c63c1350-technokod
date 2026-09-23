@@ -47,7 +47,12 @@ class AgentState:
 
 class ForecastAgent:
     def __init__(self, models: dict[int, GenerationModel] | None = None):
-        self.models = models or {t: GenerationModel.load(t) for t in (1, 2)}
+        if models is None:
+            missing = [t for t in (1, 2) if not (Path("models") / f"turbine_{t}.joblib").exists()]
+            if missing:
+                raise RuntimeError("Модели не обучены. Выполните: python -m app.cli train")
+            models = {t: GenerationModel.load(t) for t in (1, 2)}
+        self.models = models
         self.tools: dict[str, Callable[..., dict]] = {
             "get_weather": self.get_weather,
             "prepare_and_predict": self.prepare_and_predict,

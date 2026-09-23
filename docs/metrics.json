@@ -60,6 +60,41 @@
         }
       }
     },
+    "residual_quantiles": {
+      "lead1_lvl0": [
+        -0.101,
+        0.193
+      ],
+      "lead1_lvl1": [
+        -0.244,
+        0.352
+      ],
+      "lead1_lvl2": [
+        -0.354,
+        0.289
+      ],
+      "lead1_lvl3": [
+        -0.24,
+        0.13
+      ],
+      "lead2_lvl0": [
+        -0.115,
+        0.2
+      ],
+      "lead2_lvl1": [
+        -0.286,
+        0.422
+      ],
+      "lead2_lvl2": [
+        -0.462,
+        0.326
+      ],
+      "lead2_lvl3": [
+        -0.46,
+        0.13
+      ]
+    },
+    "p10_p90_coverage_jan2026": 0.796,
     "model_path": "models/turbine_1.joblib",
     "train_rows_final": 31078
   },
@@ -124,6 +159,41 @@
         }
       }
     },
+    "residual_quantiles": {
+      "lead1_lvl0": [
+        -0.097,
+        0.188
+      ],
+      "lead1_lvl1": [
+        -0.231,
+        0.4
+      ],
+      "lead1_lvl2": [
+        -0.389,
+        0.322
+      ],
+      "lead1_lvl3": [
+        -0.165,
+        0.162
+      ],
+      "lead2_lvl0": [
+        -0.101,
+        0.22
+      ],
+      "lead2_lvl1": [
+        -0.304,
+        0.454
+      ],
+      "lead2_lvl2": [
+        -0.443,
+        0.333
+      ],
+      "lead2_lvl3": [
+        -0.3,
+        0.137
+      ]
+    },
+    "p10_p90_coverage_jan2026": 0.796,
     "model_path": "models/turbine_2.joblib",
     "train_rows_final": 33710
   }

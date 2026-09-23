@@ -25,6 +25,9 @@
 | [`docs/test-plan.md`](test-plan.md) | Программа и методика испытаний, проверка честности прогноза, журнал приёмки | ✔ | ✔ | ✔ |
 | [`docs/compliance.md`](compliance.md) | Происхождение кода, лицензии, внешние API, данные, раскрытие ИИ-инструментов | ✔ | | |
 | [`docs/submission-checklist.md`](submission-checklist.md) | Требования положения хакатона и что чем закрыто в сдаче | ✔ | ✔ | |
+| [`docs/api.md`](api.md) | Справочник интерфейсов: HTTP-сервис и команды CLI с примерами ответов | | ✔ | ✔ |
+| [`docs/audit.md`](audit.md) | Журнал независимой проверки «обещано против сделано» с историей прогонов | ✔ | ✔ | |
+| [`docs/index.html`](index.html), [`docs/demo/`](demo/) | Исходник демонстрационной страницы https://hack.technokod.kz и данные её графика | ✔ | ✔ | |
 | `assets/validation_jan2026.png`, `assets/forecast_feb2026.png` | Иллюстрации к README: валидация января и прогноз февраля; строятся скриптом `scripts/make_charts.py` из артефактов | ✔ | | |
 
 ## Порядок чтения
